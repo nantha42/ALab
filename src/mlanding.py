@@ -1,4 +1,5 @@
 from icecream import ic
+import torch.nn.functional as F
 import gym
 import torch.nn as nn
 import torch
@@ -14,6 +15,7 @@ class Self_attention(nn.Module):
         self.dropout = nn.Dropout(dp)
         
     def forward(self,q,k,v,mask=None):
+        # ic(q.shape,k.shape,v.shape)
         matmul_qk = q @ k.transpose(-1,-2)
         scaled_attention_logits = matmul_qk/ torch.sqrt(torch.tensor(k.shape[-1],dtype=torch.float32))
         attention_weights = torch.nn.functional.softmax(scaled_attention_logits,dim=-1)
@@ -40,6 +42,7 @@ class AttentionHead(nn.Module):
         K = self.key_tfm(key)
         V = self.values_tfm(values)
          
+        # print(Q.shape,K.shape,V.shape)
         dK = K.detach().clone()
         dV = V.detach().clone()
 
@@ -53,7 +56,6 @@ class AttentionHead(nn.Module):
             self.kmemory = torch.cat((dK,self.kmemory),dim=1)# concating in sequence length 
             self.vmemory = torch.cat((dV,self.vmemory),dim=1)
             # print("Memory appended",self.kmemory.shape)
-
         x,att_weight = self.attn(Q,K,V,None)
         return x,att_weight
     
@@ -111,18 +113,27 @@ class Brain(nn.Module):
         super().__init__()
         self.encode = nn.Linear(2,16)
         self.atten = MultiheadAttentionXL(16,4,4,0.1)
-        self.final_out = 
+        self.ff1 = nn.Linear(16,4)
+        self.ff2 = nn.Linear(4,1)
+        # self.final_out = 
 
     def forward(self,x):
         t = self.encode(x)
         self.atten.pop_last(4)
-        out = self.atten(t)
-        return out
+        y,out = self.atten(t,t,t,False)
+        y = F.relu(self.ff1(y))
+        y = self.ff2(y)
+        return  y
 
 if __name__ == '__main__':
-
+    b = Brain()
+    
+    o,r,d,i = env.step(env.action_space.sample())
     for _ in range(500):
         env.render()
-        o,r,d,i = env.step(env.action_space.sample())
-        ic(o,r,d,i)
+        inp = torch.tensor(o,dtype=torch.float32).view(1,1,-1)
+        out = b(inp)
+        o,r,d,i = env.step([out.detach().item()])
+        print(out,r)
+        
 # 2. To check all env available, uninstalled ones are also shown

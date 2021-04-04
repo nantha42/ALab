@@ -6,6 +6,9 @@ import matplotlib.pyplot as plt
 import torch 
 import torch.nn as nn
 
+
+inp_dim = 500
+
 class Game:
     def __init__(self):
         self.board = np.array([[0,0,0],[0,0,0],[0,0,0]])
@@ -25,7 +28,7 @@ class Straight(nn.Module):
         super().__init__()
         self.name="stratight"
         self.a1 = nn.Sequential(
-            nn.Linear(9,20),
+            nn.Linear(inp_dim,20),
             nn.ReLU(),
             nn.Linear(20,10),
             nn.ReLU(),
@@ -39,17 +42,18 @@ class XO(nn.Module):
     def __init__(self):
         super().__init__()
         self.name = "Xo"
-        ind = 15
+        ind = 4
+        dim = inp_dim 
         self.a1 = nn.Sequential(
-                 nn.Linear(9,ind),
+                 nn.Linear(dim,ind),
                  nn.ReLU(),
-                 nn.Linear(ind,9),
+                 nn.Linear(ind,dim),
                  nn.ReLU())
                  
         self.a2 =  nn.Sequential(
-             nn.Linear(9,ind),
+             nn.Linear(dim,ind),
              nn.ReLU(),
-             nn.Linear(ind,9),
+             nn.Linear(ind,dim),
              nn.ReLU())
         
     def forward(self,x):
@@ -109,20 +113,25 @@ class Test():
         self.loss_fn = torch.nn.CrossEntropyLoss()
         self.data = []
         self.avgtime= []
-    
+
+    def fbtime(self):
+        return np.mean(self.avgtime) 
+
     def step(self,x,y):
         start = time.time() 
         o = self.model(x)
+        
+        self.avgtime.append(time.time()-start)
         loss = self.loss_fn(o,y)
         loss.backward()
         self.optim.step()
         self.optim.zero_grad()
-        self.avgtime.append(time.time()-start)
         self.data.append(loss.item())
         
 class TestAll:
     def __init__(self,models):
         self.testers = []
+        self.models = models 
         for m in models:
             self.testers.append(Test(m))
             count = sum(p.numel() for p in m.parameters())
@@ -134,6 +143,11 @@ class TestAll:
     
     def plot(self):
         legs = []
+
+        for m in self.testers:
+            count = sum(p.numel() for p in m.model.parameters())
+            print(m.model.name," : ",count," FB time: ",m.fbtime())
+ 
         for m in self.testers:
             plt.plot(range(len(m.data)),m.data)
             legs.append(m.model.name)
@@ -148,14 +162,14 @@ if __name__ == '__main__':
     mod2 = catmodel()
     mod3 = XO()
     mod4 = Samecatmodel()
-    testall = TestAll([mod,mod1,mod2,mod3,mod4])
+    testall = TestAll([mod1,mod3,])
 
-    ds = 1000
-    x = torch.randn((ds,9))
+    ds = 8000
+    epoch = 1000
+    x = torch.randn((ds,inp_dim))
     g = torch.tensor(torch.randint(0,2,(ds,)),dtype=torch.long)
 
-    
-    pbar = tqdm(range(500))
+    pbar = tqdm(range(epoch))
     for i in pbar :
         testall.step(x,g)
     testall.plot()
