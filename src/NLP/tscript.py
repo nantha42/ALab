@@ -106,7 +106,8 @@ if __name__ == '__main__':
 
 	print(len(list(set(words))))
 	words = []
-	words.extend(get_words('m0'))
+	words.extend(get_words('m1'))
+	print(words[:100])
 	print(len(list(set(words))))
 
 	
