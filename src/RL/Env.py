@@ -3,13 +3,17 @@ import typing
 import numpy as np 
 np.random.seed(5)
 
+ENABLE_DRAW = True 
+
 
 
 class PowerGame:
     def __init__(self):
+        py.init()
         self.w = 600
         self.h = 600
-        self.win = py.display.set_mode((900,600))
+        self.win = py.display.set_mode((900,600),py.DOUBLEBUF,32)
+        self.win.set_alpha(128)
         self.agents = None 
         self.grid = np.zeros((20,30))
         self.test = [0,0]
@@ -19,6 +23,8 @@ class PowerGame:
         self.timer = 0
         self.res = 0
         self.agent_pos = np.array([0,0])
+        self.enable_draw = ENABLE_DRAW 
+        self.visibility = None
         #initializing agents
         self.RES = 9
     
@@ -29,9 +35,11 @@ class PowerGame:
 
         for i in range(-2,3):
             for j in range(-2,3):
-                if(0 <= x+i < h and 0 <= y+j < v):
-                    vis[i+2,j+2] = self.grid[x+i,y+i] 
-        return vis 
+                if(0 <= x+i < v and 0 <= y+j < h):
+                    vis[i+2,j+2] = self.grid[x+i,y+j] 
+        self.visibility = vis
+        return self.visibility 
+
 
     def act(self,action:np.ndarray):
         pass
@@ -41,7 +49,13 @@ class PowerGame:
         r = 1
         bs = self.box_size#box size
         sx,sy = self.start_position 
-        py.draw.rect(self.win,color,(sx+j*bs,sy+i*bs,bs,bs)) 
+        print(sx,sy)
+        print((sx+j*bs,sy+i*bs,bs,bs))
+        surf = py.Surface((bs,bs),py.SRCALPHA)
+        surf = surf.convert_alpha()
+        py.draw.rect(surf,color,surf.get_rect())
+        self.win.blit(surf,(sx+j*bs,sy+i*bs,bs,bs),special_flags=py.BLEND_RGBA_ADD)
+#        py.draw.rect(self.win,py.Color(color),(sx+j*bs,sy+i*bs,bs,bs)) 
 
     def draw_grid(self):
         #horizontal line
@@ -57,6 +71,14 @@ class PowerGame:
         for i in range(h+1):
             py.draw.line(self.win,color,(sx+i*bs,sy),(sx+i*bs,sy+v*bs))
 
+    def draw_visibility(self):
+        vv,vh = self.visibility.shape
+        ax,ay = self.agent_pos
+        lx,ly = self.grid.shape
+        for i in range(vv):
+            for j in range(vh):
+                if 0<= i+ax-vv//2 < lx and 0<= j+ay-vh//2 < ly: 
+                    self.draw_box(i+ax-vv//2,j+ay-vh//2,[50,50,50])
 
     def draw_items(self):
         v,h = self.grid.shape
@@ -71,12 +93,14 @@ class PowerGame:
         self.draw_grid()
         self.draw_items()
 
-        self.agent_pos[1] = ((self.agent_pos[1]+1)%20)
+        self.agent_pos[1] = ((self.agent_pos[1]+1)%30)
         if self.agent_pos[1] == 0:
-            self.agent_pos[0] = ((self.agent_pos[0]+1)%30)
+            self.agent_pos[0] = ((self.agent_pos[0]+1)%20)
         print(self.agent_pos)
         print(self.get_state())
         self.draw_box(self.agent_pos[0],self.agent_pos[1],(0,0,200))
+
+        self.draw_visibility()
         py.display.update()
  
     def spawn_resources(self):
@@ -102,8 +126,9 @@ class PowerGame:
     def step(self):
         self.event_handler()
         self.update()
-        self.draw()
-        self.clock.tick(10)
+        if self.enable_draw:
+            self.draw()
+        self.clock.tick(0)
 
 if __name__ == '__main__':
     r = PowerGame() 

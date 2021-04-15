@@ -1,4 +1,5 @@
 #import torch
+import textblob
 from icecream import ic
 from esfunc import *
 import csv
@@ -7,7 +8,7 @@ import re
 import torchtext
 from torchtext.data import get_tokenizer
 tokenizer = get_tokenizer("basic_english")
-cornell = "../dataset/cornell/"
+cornell = "../../dataset/cornell/"
 
 lines = {}
 def load_lines():
