@@ -6,12 +6,12 @@ np.random.seed(5)
 ENABLE_DRAW = True 
 
 
-
 class PowerGame:
-    def __init__(self,gr=10,gc=10):
+    def __init__(self,gr=10,gc=10,vis=7):
         py.init()
         self.box_size = 20 
         self.grid = np.zeros((gr,gc))
+        self.vissize = vis
         self.w = 50 + gc*self.box_size + 50
         self.h = 50 + gr*self.box_size + 50
         self.win = py.display.set_mode((self.w,self.h),py.DOUBLEBUF,32)
@@ -32,7 +32,7 @@ class PowerGame:
     
     def get_state(self) -> np.ndarray :
         x,y = self.agent_pos
-        vis = np.ones((7,7))*-1
+        vis = np.ones((self.vissize,self.vissize))*-1
         v,h = self.grid.shape
         for i in range(-2,3):
             for j in range(-2,3):
