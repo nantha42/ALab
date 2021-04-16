@@ -8,20 +8,22 @@ ENABLE_DRAW = True
 
 
 class PowerGame:
-    def __init__(self):
+    def __init__(self,gr=10,gc=10):
         py.init()
-        self.w = 600
-        self.h = 600
-        self.win = py.display.set_mode((900,600),py.DOUBLEBUF,32)
+        self.box_size = 20 
+        self.grid = np.zeros((gr,gc))
+        self.w = 50 + gc*self.box_size + 50
+        self.h = 50 + gr*self.box_size + 50
+        self.win = py.display.set_mode((self.w,self.h),py.DOUBLEBUF,32)
         self.win.set_alpha(128)
         self.agents = None 
-        self.grid = np.zeros((20,30))
         self.test = [0,0]
         self.clock = py.time.Clock()
-        self.box_size = 20 
         self.start_position= [50,50]
         self.timer = 0
         self.res = 0
+        self.collected = 0
+        self.processors = 0
         self.agent_pos = np.array([0,0])
         self.enable_draw = ENABLE_DRAW 
         self.visibility = None
@@ -30,9 +32,8 @@ class PowerGame:
     
     def get_state(self) -> np.ndarray :
         x,y = self.agent_pos
-        vis = np.ones((5,5))*-1
+        vis = np.ones((7,7))*-1
         v,h = self.grid.shape
-
         for i in range(-2,3):
             for j in range(-2,3):
                 if(0 <= x+i < v and 0 <= y+j < h):
@@ -42,15 +43,35 @@ class PowerGame:
 
 
     def act(self,action:np.ndarray):
-        pass
+        left,up,right,down = action[:4]
+        v,h = self.grid.shape
+        collect = action[4]
+        cx,cy = self.agent_pos
+        reward = 0
+        if left > 0 and self.agent_pos[1]>0:
+            self.agent_pos[1] -=1
+        elif right > 0 and self.agent_pos[1]< h-1:
+            self.agent_pos[1] += 1
+        elif up > 0 and self.agent_pos[0] >0:
+            self.agent_pos[0] -=1 
+        elif down>0 and self.agent_pos[0] < v-1:
+            self.agent_pos[0] +=1
+        elif collect > 0 and self.grid[cx][cy] == self.RES:
+            self.grid[cx][cy] = 0
+            self.res -= 1
+            self.collected += 1
+            reward = 1
+        new_state = self.get_state()
+        return new_state,reward
+        
 
     def draw_box(self,i,j,color):
         v,h = self.grid.shape
         r = 1
         bs = self.box_size#box size
         sx,sy = self.start_position 
-        print(sx,sy)
-        print((sx+j*bs,sy+i*bs,bs,bs))
+        # print(sx,sy)
+        # print((sx+j*bs,sy+i*bs,bs,bs))
         surf = py.Surface((bs,bs),py.SRCALPHA)
         surf = surf.convert_alpha()
         py.draw.rect(surf,color,surf.get_rect())
@@ -72,13 +93,21 @@ class PowerGame:
             py.draw.line(self.win,color,(sx+i*bs,sy),(sx+i*bs,sy+v*bs))
 
     def draw_visibility(self):
-        vv,vh = self.visibility.shape
-        ax,ay = self.agent_pos
-        lx,ly = self.grid.shape
-        for i in range(vv):
-            for j in range(vh):
-                if 0<= i+ax-vv//2 < lx and 0<= j+ay-vh//2 < ly: 
-                    self.draw_box(i+ax-vv//2,j+ay-vh//2,[50,50,50])
+        if self.visibility is not None:
+            vv,vh = self.visibility.shape
+            ax,ay = self.agent_pos
+            lx,ly = self.grid.shape
+            for i in range(vv):
+                for j in range(vh):
+                    if 0<= i+ax-vv//2 < lx and 0<= j+ay-vh//2 < ly: 
+                        self.draw_box(i+ax-vv//2,j+ay-vh//2,[50,50,50])
+
+    def reset(self):
+        v,h = self.grid.shape
+        self.grid = np.zeros((v,h))
+        self.agent_pos = np.array([0,0]) 
+        self.res = 0
+
 
     def draw_items(self):
         v,h = self.grid.shape
@@ -93,18 +122,28 @@ class PowerGame:
         self.draw_grid()
         self.draw_items()
 
-        self.agent_pos[1] = ((self.agent_pos[1]+1)%30)
-        if self.agent_pos[1] == 0:
-            self.agent_pos[0] = ((self.agent_pos[0]+1)%20)
-        print(self.agent_pos)
-        print(self.get_state())
+        # self.agent_pos[1] = ((self.agent_pos[1]+1)%30)
+        # if self.agent_pos[1] == 0:
+        #     self.agent_pos[0] = ((self.agent_pos[0]+1)%20)
+        # # print(self.agent_pos)
+        # print(self.get_state())
+        self.get_state()
         self.draw_box(self.agent_pos[0],self.agent_pos[1],(0,0,200))
-
         self.draw_visibility()
         py.display.update()
- 
+    
     def spawn_resources(self):
         #initializing foods
+        self.timer +=1
+        v,h = self.grid.shape
+        if self.timer%10 == 0 and self.res < 10:
+            while True: 
+                r = np.random.randint(0,v)
+                c = np.random.randint(0,h)
+                if self.grid[r][c] == 0:
+                    self.grid[r][c] = self.RES
+                    self.res +=1
+                    break
         pass
 
     def event_handler(self):
@@ -114,25 +153,19 @@ class PowerGame:
                 exit()
     
     def update(self):
-        self.timer += 1 
-        v,h = self.grid.shape
-        if self.timer%10 == 0 and self.res < 10:
-            r = np.random.randint(v-10,v)
-            c = np.random.randint(h-10,h)
-            self.grid[r][c] = self.RES
-            self.res +=1
+        self.spawn_resources()
         pass
 
-    def step(self):
+    def step(self,speed=0):
         self.event_handler()
         self.update()
         if self.enable_draw:
             self.draw()
-        self.clock.tick(0)
+            self.clock.tick(speed)
 
 if __name__ == '__main__':
     r = PowerGame() 
-    print(r.get_state())
+    # print(r.get_state())
     while True:
         r.step()
 
