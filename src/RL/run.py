@@ -49,7 +49,8 @@ def train(gsize: int,vsize: int,nactions: int,model_name: str,mem=False,load_mod
         net.load_state_dict(torch.load("../../models/"+load_model))
     # state = torch.tensor(game.get_state(),dtype=torch.float).reshape(1,-1)
     for i in range(episodes):
-        game.reset() 
+        hard_reset = False 
+        game.reset(hard_reset) 
         log_probs = []
         rewards = []
         state = game.get_state().reshape(-1)
@@ -71,10 +72,10 @@ def train(gsize: int,vsize: int,nactions: int,model_name: str,mem=False,load_mod
         update_policy(net,rewards,log_probs)
         show_once = 1000
         if i% show_once == show_once -1:
-            recorder.plot()
+            recorder.plot("Power1.png")
             recorder.save("Power1.pkl")
         torch.save(net.state_dict(),"../../models/" + model_name) 
-    recorder.save("Powert1.pkl")
+    recorder.save("PowerAgentMv2.pkl")
 
 def test(gsize: int,vsize: int,nactions: int,model_name: str,mem=False):
     kr,kc = gsize
@@ -88,7 +89,8 @@ def test(gsize: int,vsize: int,nactions: int,model_name: str,mem=False):
     net.load_state_dict(torch.load("../../models/"+ model_name))
     # state = torch.tensor(game.get_state(),dtype=torch.float).reshape(1,-1)
     for i in range(episodes): 
-        game.reset() 
+        hard_reset = False 
+        game.reset(hard_reset) 
         state = game.get_state().reshape(-1)
         rewards = []
         if mem:
@@ -108,8 +110,8 @@ def test(gsize: int,vsize: int,nactions: int,model_name: str,mem=False):
 
 if __name__ == '__main__':
     EPISODES = 5000
-    STEPS = 1000
-    HIDDEN_SIZE =  16 
+    STEPS = 3000
+    HIDDEN_SIZE =  128 
     train((12,12),5,6,"PowerAgentv2-S5.pth")
     # input()
     # train((10,10),5,"PAAgent-S5.pth",mem=True,load_model="PAAgent-S5.pth")

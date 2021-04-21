@@ -22,6 +22,7 @@ class PolicyNetwork(nn.Module):
 
     def forward(self, state):
         x = F.relu(self.linear1(state))
+        # x = F.relu(self.linear15(x))
         x = F.softmax(self.linear2(x), dim=1)
         return x 
     
@@ -73,7 +74,7 @@ class PolicyAttenNetwork(nn.Module):
         self.WQ = nn.Linear(num_inputs,hidden_size)
         self.WK = nn.Linear(num_inputs,hidden_size)
         self.WV = nn.Linear(num_inputs,hidden_size)
-        self.cache_size = 5
+        self.cache_size = 10 
         self.kmem = None 
         self.vmem = None 
         self.linear1 = nn.Linear(hidden_size,hidden_size//2)

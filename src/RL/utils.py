@@ -19,11 +19,11 @@ class RLGraph:
     def newdata(self,x):
         self.hist.append(x)
     
-    def plot(self):
+    def plot(self,name):
         smoothed_rewards = pd.Series.rolling(pd.Series(self.hist), 10).mean()
         smoothed_rewards = [elem for elem in smoothed_rewards]
         plt.plot(self.hist)
         plt.plot(smoothed_rewards)
         plt.xlabel('Episodes')
         plt.ylabel('Rewards')
-        plt.show()
+        plt.savefig("../../graphs/"+name)

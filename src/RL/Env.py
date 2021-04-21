@@ -117,7 +117,9 @@ class PowerGame:
                     if 0<= i+ax-vv//2 < lx and 0<= j+ay-vh//2 < ly: 
                         self.draw_box(i+ax-vv//2,j+ay-vh//2,[50,50,50])
 
-    def reset(self):
+    def reset(self,hard=False):
+        if hard:
+            np.random.seed(5)
         v,h = self.grid.shape
         self.grid = np.zeros((v,h))
         self.agent_pos = np.array([0,0]) 
