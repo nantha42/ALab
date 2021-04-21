@@ -1,4 +1,5 @@
 from agents import *
+from tqdm import tqdm
 from Env import *
 
 def update_policy(policy_network, rewards, log_probs):
@@ -31,15 +32,16 @@ def train(gsize,vsize,model_name,mem=False,load_model=None):
         Train()
         Use to train the network
     """
+    hs = 32
     kr,kc = gsize
     game = PowerGame(kr,kc,vsize)
     game.enable_draw = False
     steps = STEPS 
     episodes = EPISODES 
     if mem:
-        net = PolicyMemoryNetwork(num_inputs=vsize*vsize,num_actions=5,hidden_size=128)
+        net = PolicyAttenNetwork(num_inputs=vsize*vsize,num_actions=5,hidden_size=HIDDEN_SIZE)
     else:
-        net = PolicyNetwork(num_inputs=5*5,num_actions=5,hidden_size=128)
+        net = PolicyNetwork(num_inputs=5*5,num_actions=5,hidden_size=HIDDEN_SIZE)
     if load_model is not None:
         net.load_state_dict(torch.load("../../models/"+load_model))
     # state = torch.tensor(game.get_state(),dtype=torch.float).reshape(1,-1)
@@ -50,15 +52,19 @@ def train(gsize,vsize,model_name,mem=False,load_model=None):
         state = game.get_state().reshape(-1)
         if mem:
             net.reset()
-        for j in range(steps):
+        pbar = tqdm(range(steps))
+        trewards = 0
+        for j in pbar: 
             action,log_prob = net.get_action(state)
             avec = np.zeros((5));avec[action] = 1
             new_state,reward = game.act(avec)
             log_probs.append(log_prob)
             rewards.append(reward)
+            trewards += reward
             state = new_state.reshape(-1)
             game.step()
-        print(f"Episode: {i} Total Reward: ",sum(rewards))
+            pbar.set_description(f"Episodes: {i:4} Rewards: {trewards:2}")
+        # print(f"Episode: {i} Total Reward: ",sum(rewards))
         update_policy(net,rewards,log_probs)
         torch.save(net.state_dict(),"../../models/" + model_name) 
 
@@ -68,31 +74,36 @@ def test(gsize,vsize,model_name,mem=False):
     steps = STEPS 
     episodes = EPISODES 
     if mem:
-        net = PolicyMemoryNetwork(num_inputs=vsize*vsize,num_actions=5,hidden_size=128)
+        net = PolicyAttenNetwork(num_inputs=vsize*vsize,num_actions=5,hidden_size=HIDDEN_SIZE)
     else:
-        net = PolicyNetwork(num_inputs=vsize*vsize,num_actions=5,hidden_size=128)
+        net = PolicyNetwork(num_inputs=vsize*vsize,num_actions=5,hidden_size=HIDDEN_SIZE)
     net.load_state_dict(torch.load("../../models/"+ model_name))
     # state = torch.tensor(game.get_state(),dtype=torch.float).reshape(1,-1)
-
-    for i in range(episodes):
+    for i in range(episodes): 
         game.reset() 
         state = game.get_state().reshape(-1)
         rewards = []
         if mem:
             net.reset()
-        for i in range(steps):
+        pbar = tqdm(range(steps))
+        trewards = 0
+ 
+        for j in pbar: 
             action,log_prob = net.get_action(state)
             avec = np.zeros((5));avec[action] = 1
             new_state,reward = game.act(avec)
             rewards.append(reward)
+            trewards += reward
+            pbar.set_description(f"Episode: {i:4} Rewards : {trewards}")
             state = new_state.reshape(-1)
             game.step()
-        print("Total Reward: ",sum(rewards))
 
 if __name__ == '__main__':
     EPISODES = 5000
     STEPS = 1000
+    HIDDEN_SIZE =  16 
     # input()
-    train((20,30),5,"PMAgent-S5.pth",mem=True)
+    # train((10,10),5,"PAAgent-S5.pth",mem=True,load_model="PAAgent-S5.pth")
     # train((20,30),5,"PowerAgent-S5.pth")
-    # test((20,30),5,"PMAgent-S5.pth",mem=True)
+    # test((30,30),5,"PowerAgent-S5.pth",)
+    test((30,30),5,"PAAgent-S5.pth",mem=True)

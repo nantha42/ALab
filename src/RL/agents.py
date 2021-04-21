@@ -57,6 +57,61 @@ class RNN(nn.Module):
     def initHidden(self):
         return torch.zeros(1, self.hidden_size)
 
+def attention(q,k,v):
+    matmul_qk = q @ k.transpose(-1,-2)
+    scaled_attention_logits = matmul_qk/ torch.sqrt(torch.tensor(k.shape[-1],dtype=torch.float32))
+    attention_weights = torch.nn.functional.softmax(scaled_attention_logits,dim=-1)
+    attention_weights = torch.nn.functional.dropout(attention_weights,0.2)
+    output = attention_weights @ v 
+    return [output, attention_weights.detach().clone()]
+
+class PolicyAttenNetwork(nn.Module):   
+    def __init__(self, num_inputs, num_actions, hidden_size, learning_rate=3e-4):
+        super(PolicyAttenNetwork, self).__init__()
+        self.hidden_size = hidden_size 
+        self.num_actions = num_actions
+        self.WQ = nn.Linear(num_inputs,hidden_size)
+        self.WK = nn.Linear(num_inputs,hidden_size)
+        self.WV = nn.Linear(num_inputs,hidden_size)
+        self.cache_size = 5
+        self.kmem = None 
+        self.vmem = None 
+        self.linear1 = nn.Linear(hidden_size,hidden_size//2)
+        self.linear2 = nn.Linear(hidden_size//2,num_actions)
+        self.optimizer = optim.Adam(self.parameters(), lr=learning_rate)
+    
+    def reset(self):
+        self.kmem = None 
+        self.vmem = None 
+ 
+    
+    def forward(self,state):
+        q = self.WQ(state)
+        k = self.WK(state)
+        v = self.WV(state)
+        if self.kmem is None:
+            self.kmem = k
+            self.vmem = v
+        if len(self.kmem) == self.cache_size:
+            self.kmem = self.kmem[:-1,:]
+            self.vmem = self.vmem[:-1,:]
+        dk = k.detach().clone()
+        dv = v.detach().clone()
+        self.kmem = torch.cat([dk,self.kmem],dim=-2)
+        self.vmem = torch.cat([dv,self.vmem],dim=-2)
+        out,attn = attention(q,self.kmem,self.vmem)
+        out = nn.functional.relu(self.linear1(out))
+        out = nn.functional.softmax(self.linear2(out),dim=-1)
+        return out
+
+    def get_action(self, state):
+        state = torch.from_numpy(state).float().unsqueeze(0)
+        probs = self.forward(Variable(state))
+        highest_prob_action = np.random.choice(self.num_actions, p=np.squeeze(probs.detach().numpy()))
+        log_prob = torch.log(probs.squeeze(0)[highest_prob_action])
+        return highest_prob_action, log_prob
+
+   
 
 class PolicyMemoryNetwork(nn.Module):
     def __init__(self, num_inputs, num_actions, hidden_size, learning_rate=3e-4):
