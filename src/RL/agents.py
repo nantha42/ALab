@@ -112,7 +112,35 @@ class PolicyAttenNetwork(nn.Module):
         log_prob = torch.log(probs.squeeze(0)[highest_prob_action])
         return highest_prob_action, log_prob
 
-   
+class PolicyGRUNetwork(nn.Module):
+    def __init__(self, num_inputs, num_actions, hidden_size, learning_rate=3e-4):
+        super(PolicyGRUNetwork,self).__init__()
+        self.hidden_size = hidden_size
+        input_size = num_inputs
+        self.num_actions = num_actions
+        self.layers = 2
+        self.hidden = torch.zeros(self.layers,1,self.hidden_size)
+        self.gru = nn.GRU(input_size,self.hidden_size,self.layers)
+        self.h0 = torch.randn(self.layers,1,self.hidden_size)
+        self.lin1 = nn.Linear(self.hidden_size,num_actions)
+        self.optimizer = optim.Adam(self.parameters(), lr=learning_rate)
+
+    def reset(self):
+        self.hidden = torch.zeros(self.layers,1,self.hidden_size)
+    
+    def forward(self,state):
+        x, self.hidden = self.gru(state,self.hidden)
+        x = F.relu(self.lin1(x))
+        x = F.softmax(x,dim=-1)
+        return x
+
+    def get_action(self, state):
+        state = torch.from_numpy(state).float().unsqueeze(0).unsqueeze(0)
+        probs = self.forward(Variable(state))[:,0,:]
+        highest_prob_action = np.random.choice(self.num_actions, p=np.squeeze(probs.detach().numpy()))
+        log_prob = torch.log(probs.squeeze(0)[highest_prob_action])
+        return highest_prob_action, log_prob
+
 
 class PolicyMemoryNetwork(nn.Module):
     def __init__(self, num_inputs, num_actions, hidden_size, learning_rate=3e-4):

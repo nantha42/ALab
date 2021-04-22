@@ -7,12 +7,12 @@ class RLGraph:
         self.hist = []
 
     def save(self,name):
-        f = open("../history/"+name,"wb")
+        f = open("../../history/"+name,"wb")
         pickle.dump(self.hist,f)
         print("Saved History...")
     
     def load(self,name):
-        f = open("../history/"+name,"rb")
+        f = open("../../history/"+name,"rb")
         pickle.load(f,self.hist)
         print("Loaded History...")
 
