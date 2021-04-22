@@ -1,7 +1,7 @@
-# PowerAgent 
+# RL - PowerAgent  
 Agent needs to collect resources and build processor where the processor will produce items. Collecting this items gives more reward to the agent.
 
-![Alt text](images/1.png?raw=true "Title") ![A](images/2.png?raw=true "Title1")
+![Demo Run](images/1.png?raw=true "Demo 1") ![Demo Run](images/2.png?raw=true "Demo 2")
 
 Run `run.py` in `src/RL`. Comment the test function and uncomment the train function. The type parameter takes one of the three values `Atten`, `Default`, `Memory` .  
 
@@ -27,3 +27,4 @@ train( gsize=(14,14),
        type="Memory",
        load_model = None)
 ```
+Once trained the model, use the test function and change the type to the type of your model and run `run.py`
