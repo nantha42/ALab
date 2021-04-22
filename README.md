@@ -28,3 +28,9 @@ train( gsize=(14,14),
        load_model = None)
 ```
 Once trained the model, use the test function and change the type to the type of your model and run `run.py`
+Training Results for Memory and Attention are given below:
+
+<img src="graphs/PowerAAgentv2-S7.png" alt="Memory" width=400>
+<img src="graphs/PowerAtenAgentv2-S7.png" alt = "Memory" width=400>
+
+Attention Agent required more time in learning because it can see only 20 frames back in time where Memory Agent can look behind much back.
