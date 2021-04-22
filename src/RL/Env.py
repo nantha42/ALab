@@ -8,6 +8,7 @@ ENABLE_DRAW = True
 class PowerGame:
     def __init__(self,gr=10,gc=10,vis=7):
         py.init()
+        self.font = py.font.SysFont("times",20)
         self.box_size = 20 
         self.grid = np.zeros((gr,gc))
         self.vissize = vis
@@ -21,6 +22,7 @@ class PowerGame:
         self.start_position= [50,50]
         self.timer = 0
         self.res = 0
+        self.items = 0
         self.collected = 0
         self.processors = 0
         self.agent_pos = np.array([0,0])
@@ -31,7 +33,14 @@ class PowerGame:
         self.RES = 9
         self.PROCESSOR = 8
         self.ITEM = 7
-    
+
+    def render_text(self,text,pos):
+        text = self.font.render(text,True,(200,200,200))
+        trect = text.get_rect()
+        trect.topleft =  pos 
+        self.win.blit(text,trect)
+
+   
     def get_state(self) -> np.ndarray :
         x,y = self.agent_pos
         vis = np.ones((self.vissize,self.vissize))*-1
@@ -67,6 +76,7 @@ class PowerGame:
                 self.collected += 1
             elif self.grid[cx][cy] == self.ITEM:
                 reward = 5
+                self.items += 1
             self.grid[cx][cy] = 0
             reward = 1
 
@@ -124,10 +134,9 @@ class PowerGame:
         self.grid = np.zeros((v,h))
         self.agent_pos = np.array([0,0]) 
         self.res = 0
+        self.items = 0
         self.collected = 0
         self.processors = []
-
-
 
     def draw_items(self):
         v,h = self.grid.shape
@@ -145,7 +154,8 @@ class PowerGame:
         self.win.fill((0,0,0))
         self.draw_grid()
         self.draw_items()
-
+        self.render_text(f"Collected :{self.collected:3}",(0,0))
+        self.render_text(f"Items     :{self.items:3}",(0,10))
         # self.agent_pos[1] = ((self.agent_pos[1]+1)%30)
         # if self.agent_pos[1] == 0:
         #     self.agent_pos[0] = ((self.agent_pos[0]+1)%20)
