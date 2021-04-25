@@ -22,7 +22,6 @@ max_episodes = 3000
 class ActorCritic(nn.Module):
     def __init__(self, num_inputs, num_actions, hidden_size, learning_rate=3e-4):
         super(ActorCritic, self).__init__()
-
         self.num_actions = num_actions
         self.critic_linear1 = nn.Linear(num_inputs, hidden_size)
         self.critic_linear2 = nn.Linear(hidden_size, 1)
@@ -34,10 +33,8 @@ class ActorCritic(nn.Module):
         state = Variable(torch.from_numpy(state).float().unsqueeze(0))
         value = F.relu(self.critic_linear1(state))
         value = self.critic_linear2(value)
-        
         policy_dist = F.relu(self.actor_linear1(state))
         policy_dist = F.softmax(self.actor_linear2(policy_dist), dim=1)
-
         return value, policy_dist
 
 
@@ -101,13 +98,14 @@ def a2c(env):
         advantage = Qvals - values
         actor_loss = (-log_probs * advantage).mean()
         critic_loss = 0.5 * advantage.pow(2).mean()
+        print(type(actor_loss),type(critic_loss),type(entropy_term))
+        print(actor_loss.requires_grad,(critic_loss.requires_grad))
         ac_loss = actor_loss + critic_loss + 0.001 * entropy_term
 
         ac_optimizer.zero_grad()
         ac_loss.backward()
         ac_optimizer.step()
 
-        
     
     # Plot results
     smoothed_rewards = pd.Series.rolling(pd.Series(all_rewards), 10).mean()
@@ -127,5 +125,5 @@ def a2c(env):
 
 
 if __name__ == '__main__':
-    env = gym.make("CarRacing-v0")
+    env = gym.make("CartPole-v0")
     a2c(env)

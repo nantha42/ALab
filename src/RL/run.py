@@ -30,7 +30,7 @@ def update_policy(policy_network, rewards, log_probs):
 
 
 
-def train(gsize: int,vsize: int,nactions: int,model_name: str,type="Default",load_model=None):
+def train(gsize: int,vsize: int,nactions: int,model_name: str,type="Default",load_model=None,nlayers = 2):
     """
         Train()
         Use to train the network
@@ -48,7 +48,7 @@ def train(gsize: int,vsize: int,nactions: int,model_name: str,type="Default",loa
     elif type == "Atten":
         net = PolicyAttenNetwork(num_inputs=vsize*vsize,num_actions=nactions,hidden_size=HIDDEN_SIZE)
     elif type == "Memory":
-        net = PolicyGRUNetwork(num_inputs=vsize*vsize,num_actions=nactions,hidden_size=HIDDEN_SIZE)
+        net = PolicyGRUNetwork(num_inputs=vsize*vsize,num_actions=nactions,hidden_size=HIDDEN_SIZE,nlayers=nlayers)
 
     if load_model is not None:
         net.load_state_dict(torch.load("../../models/"+load_model))
@@ -82,7 +82,7 @@ def train(gsize: int,vsize: int,nactions: int,model_name: str,type="Default",loa
         torch.save(net.state_dict(),"../../models/" + model_name) 
     recorder.save(HIST_FILENAME)
 
-def test(gsize: int,vsize: int,nactions: int,model_name: str,type: str):
+def test(gsize: int,vsize: int,nactions: int,model_name: str,type: str,nlayers=2):
     print(int(time.time())) 
     np.random.seed(int(time.time()))
     kr,kc = gsize
@@ -94,7 +94,7 @@ def test(gsize: int,vsize: int,nactions: int,model_name: str,type: str):
     elif type == "Atten":
         net = PolicyAttenNetwork(num_inputs=vsize*vsize,num_actions=nactions,hidden_size=HIDDEN_SIZE)
     elif type == "Memory":
-        net = PolicyGRUNetwork(num_inputs=vsize*vsize,num_actions=nactions,hidden_size=HIDDEN_SIZE)
+        net = PolicyGRUNetwork(num_inputs=vsize*vsize,num_actions=nactions,hidden_size=HIDDEN_SIZE,nlayers= nlayers)
 
     net.load_state_dict(torch.load("../../models/"+ model_name))
     # state = torch.tensor(game.get_state(),dtype=torch.float).reshape(1,-1)
@@ -120,24 +120,23 @@ def test(gsize: int,vsize: int,nactions: int,model_name: str,type: str):
 
 if __name__ == '__main__':
     EPISODES = 5000
-    STEPS = 10000
+    STEPS = 2000
     HIDDEN_SIZE =  64 
     MODEL_NAME = "PowerMAgentv2-S7"
-    
+    TYPE = "Memory" 
+    VSIZE = 5
+    NACTIONS = 6
     PLOT_FILENAME = MODEL_NAME + ".png" 
     HIST_FILENAME = MODEL_NAME + ".pkl" 
-
+    NLAYERS = 2
+    
     # train(  gsize=(14,14),
-    #         vsize=7,
-    #         nactions=6,
+    #         vsize=VSIZE,
+    #         nactions= NACTIONS,
     #         model_name = MODEL_NAME + ".pth", 
-    #         type="Memory",
-    #         load_model = None)
+    #         type= TYPE,
+    #         load_model = None,
+    #         nlayers=4)
+            
 
-
-    # train((14,14),7,6,"PowerAgentv2-S7.pth")
-    # input()
-    # train((10,10),5,"PAAgent-S5.pth",mem=True,load_model="PAAgent-S5.pth")
-    # train((20,30),5,"PowerAgent-S5.pth")
-    # test((30,30),5,"PowerAgent-S5.pth",)
-    test((14,14),7,6, MODEL_NAME + ".pth",type="Memory")
+    test((14,14),VSIZE, NACTIONS, MODEL_NAME + ".pth",type=TYPE,nlayers=NLAYERS)
