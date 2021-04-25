@@ -9,6 +9,8 @@ GAMMA = 0.99
 
 def update_policy(policy_network,rewards,values,log_probs,E,new_state):
     state = Variable(torch.from_numpy(new_state)).float().unsqueeze(0)
+    if TYPE == "Memory":
+        state = state.unsqueeze(0)
     Qval,_ = policy_network.forward(state)
     Qval = Qval.detach().numpy()[0,0]
  
@@ -74,7 +76,7 @@ def train(gsize: int,vsize: int,nactions: int,model_name: str,type="Default",loa
     elif type == "Atten":
         net = PolicyAttenNetwork(num_inputs=vsize*vsize,num_actions=nactions,hidden_size=HIDDEN_SIZE)
     elif type == "Memory":
-        net = PolicyGRUNetwork(num_inputs=vsize*vsize,num_actions=nactions,hidden_size=HIDDEN_SIZE,nlayers=nlayers)
+        net = ActorCriticGRU(num_inputs=vsize*vsize,num_actions=nactions,hidden_size=HIDDEN_SIZE,nlayers=nlayers)
 
     if load_model is not None:
         net.load_state_dict(torch.load("../../models/"+load_model))
@@ -126,7 +128,7 @@ def test(gsize: int,vsize: int,nactions: int,model_name: str,type: str,nlayers=2
     elif type == "Atten":
         net = PolicyAttenNetwork(num_inputs=vsize*vsize,num_actions=nactions,hidden_size=HIDDEN_SIZE)
     elif type == "Memory":
-        net = PolicyGRUNetwork(num_inputs=vsize*vsize,num_actions=nactions,hidden_size=HIDDEN_SIZE,nlayers= nlayers)
+        net = ActorCriticGRU(num_inputs=vsize*vsize,num_actions=nactions,hidden_size=HIDDEN_SIZE,nlayers= nlayers)
 
     net.load_state_dict(torch.load("../../models/"+ model_name))
     # state = torch.tensor(game.get_state(),dtype=torch.float).reshape(1,-1)
@@ -152,23 +154,23 @@ def test(gsize: int,vsize: int,nactions: int,model_name: str,type: str,nlayers=2
 
 if __name__ == '__main__':
     EPISODES = 5000
-    STEPS = 700
+    STEPS = 2000
     HIDDEN_SIZE =  64 
-    MODEL_NAME = "A2C/Agent-S7"
-    TYPE = "Default" 
-    VSIZE = 7
+    MODEL_NAME = "A2C/M4LAgent-S7"
+    TYPE = "Memory" 
+    VSIZE = 5
     NACTIONS = 6
     PLOT_FILENAME = MODEL_NAME + ".png" 
     HIST_FILENAME = MODEL_NAME + ".pkl" 
-    NLAYERS = 2
+    NLAYERS = 4
     
-    # train(  gsize=(14,14),
-    #         vsize=VSIZE,
-    #         nactions= NACTIONS,
-    #         model_name = MODEL_NAME + ".pth", 
-    #         type= TYPE,
-    #         load_model = None,
-    #         nlayers=NLAYERS)
+    train(  gsize=(14,14),
+            vsize=VSIZE,
+            nactions= NACTIONS,
+            model_name = MODEL_NAME + ".pth", 
+            type= TYPE,
+            load_model = None,
+            nlayers=NLAYERS)
             
 
-    test((14,14),VSIZE, NACTIONS, MODEL_NAME + ".pth",type=TYPE,nlayers=NLAYERS)
+    # test((14,14),VSIZE, NACTIONS, MODEL_NAME + ".pth",type=TYPE,nlayers=NLAYERS)
