@@ -5,10 +5,10 @@ np.random.seed(5)
 
 ENABLE_DRAW = True 
 
-
 class PowerGame:
     def __init__(self,gr=10,gc=10,vis=7):
         py.init()
+        self.font = py.font.SysFont("times",20)
         self.box_size = 20 
         self.grid = np.zeros((gr,gc))
         self.vissize = vis
@@ -22,14 +22,25 @@ class PowerGame:
         self.start_position= [50,50]
         self.timer = 0
         self.res = 0
+        self.items = 0
         self.collected = 0
         self.processors = 0
         self.agent_pos = np.array([0,0])
         self.enable_draw = ENABLE_DRAW 
         self.visibility = None
+        self.processors = []
         #initializing agents
         self.RES = 9
-    
+        self.PROCESSOR = 8
+        self.ITEM = 7
+
+    def render_text(self,text,pos):
+        text = self.font.render(text,True,(200,200,200))
+        trect = text.get_rect()
+        trect.topleft =  pos 
+        self.win.blit(text,trect)
+
+   
     def get_state(self) -> np.ndarray :
         x,y = self.agent_pos
         vis = np.ones((self.vissize,self.vissize))*-1
@@ -46,7 +57,9 @@ class PowerGame:
         left,up,right,down = action[:4]
         v,h = self.grid.shape
         collect = action[4]
+        build_proc = action[5]
         cx,cy = self.agent_pos
+        
         reward = 0
         if left > 0 and self.agent_pos[1]>0:
             self.agent_pos[1] -=1
@@ -56,11 +69,23 @@ class PowerGame:
             self.agent_pos[0] -=1 
         elif down>0 and self.agent_pos[0] < v-1:
             self.agent_pos[0] +=1
-        elif collect > 0 and self.grid[cx][cy] == self.RES:
+        elif collect > 0 and (self.grid[cx][cy] == self.RES or self.grid[cx][cy] == self.ITEM ):
+            if self.grid[cx][cy] == self.RES:
+                self.res -= 1
+                reward = 1
+                self.collected += 1
+            elif self.grid[cx][cy] == self.ITEM:
+                reward = 5
+                self.items += 1
             self.grid[cx][cy] = 0
-            self.res -= 1
-            self.collected += 1
             reward = 1
+
+        elif build_proc > 0 and self.collected >= 7 and self.grid[cx][cy] == 0:
+            self.grid[cx][cy] = self.PROCESSOR
+            self.processors.append([cx,cy])
+            self.collected  -= 7  # 7 resources = 1 processor
+            self.reward = 2
+        
         new_state = self.get_state()
         return new_state,reward
         
@@ -102,12 +127,16 @@ class PowerGame:
                     if 0<= i+ax-vv//2 < lx and 0<= j+ay-vh//2 < ly: 
                         self.draw_box(i+ax-vv//2,j+ay-vh//2,[50,50,50])
 
-    def reset(self):
+    def reset(self,hard=False):
+        if hard:
+            np.random.seed(5)
         v,h = self.grid.shape
         self.grid = np.zeros((v,h))
         self.agent_pos = np.array([0,0]) 
         self.res = 0
-
+        self.items = 0
+        self.collected = 0
+        self.processors = []
 
     def draw_items(self):
         v,h = self.grid.shape
@@ -116,12 +145,17 @@ class PowerGame:
             for j in range(h):
                 if self.grid[i][j] == self.RES:
                     self.draw_box(i,j,(0,255,0))
+                elif self.grid[i][j] == self.PROCESSOR:
+                    self.draw_box(i,j,(255,0,0))
+                elif self.grid[i][j] == self.ITEM:
+                    self.draw_box(i,j,(0,255,255))
  
     def draw(self):
         self.win.fill((0,0,0))
         self.draw_grid()
         self.draw_items()
-
+        self.render_text(f"Collected :{self.collected:3}",(0,0))
+        self.render_text(f"Items     :{self.items:3}",(0,20))
         # self.agent_pos[1] = ((self.agent_pos[1]+1)%30)
         # if self.agent_pos[1] == 0:
         #     self.agent_pos[0] = ((self.agent_pos[0]+1)%20)
@@ -143,6 +177,24 @@ class PowerGame:
                 if self.grid[r][c] == 0:
                     self.grid[r][c] = self.RES
                     self.res +=1
+                    break
+        if self.timer%10 == 0:
+            for processor in self.processors:
+                px,py = processor
+                if self.collected > 3:
+                    if px -1 > -1 and self.grid[px-1][py] == 0:
+                        self.grid[px-1][py] = self.ITEM
+                        self.collected -= 3
+                    elif px+1 < v and self.grid[px+1][py] == 0:
+                        self.grid[px+1][py] = self.ITEM
+                        self.collected -= 3
+                    elif py -1 > -1 and self.grid[px][py-1] == 0:
+                        self.grid[px][py-1] = self.ITEM
+                        self.collected -= 3
+                    elif py+1 < h and self.grid[px][py+1] == 0:
+                        self.grid[px][py+1] = self.ITEM
+                        self.collected -= 3
+                else:
                     break
         pass
 

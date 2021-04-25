@@ -1,11 +1,38 @@
-from agents import *
+from a2c_agents import *
 from tqdm import tqdm
 import time
 from Env import *
 from utils import *
 
 
-def update_policy(policy_network, rewards, log_probs):
+GAMMA = 0.99
+
+def update_policy(policy_network,rewards,values,log_probs,E,new_state):
+    state = Variable(torch.from_numpy(new_state)).float().unsqueeze(0)
+    Qval,_ = policy_network.forward(state)
+    Qval = Qval.detach().numpy()[0,0]
+ 
+    Qvals = np.zeros_like(values)
+    for t in reversed(range(len(rewards))):
+        Qval = rewards[t] + GAMMA * Qval
+        Qvals[t] = Qval
+    
+    values = torch.FloatTensor(values)
+    Qvals = torch.FloatTensor(Qvals)
+    log_probs = torch.stack(log_probs)
+
+    advantage = Qvals - values
+    actor_loss = (-log_probs * advantage).mean()
+    critic_loss = 0.5*advantage.pow(2).mean()
+
+    ac_loss = actor_loss + critic_loss + 0.001* E
+
+    policy_network.optimizer.zero_grad()
+    ac_loss.backward()
+    policy_network.optimizer.step()
+
+
+def update_policy_reinforce(policy_network, rewards, log_probs):
     discounted_rewards = []
 
     for t in range(len(rewards)):
@@ -29,7 +56,6 @@ def update_policy(policy_network, rewards, log_probs):
     policy_network.optimizer.step()
 
 
-
 def train(gsize: int,vsize: int,nactions: int,model_name: str,type="Default",load_model=None,nlayers = 2):
     """
         Train()
@@ -44,7 +70,7 @@ def train(gsize: int,vsize: int,nactions: int,model_name: str,type="Default",loa
     recorder = RLGraph()
 
     if type == "Default":
-        net = PolicyNetwork(num_inputs=vsize*vsize,num_actions=nactions,hidden_size=HIDDEN_SIZE)
+        net = ActorCritic(num_inputs=vsize*vsize,num_actions=nactions,hidden_size=HIDDEN_SIZE)
     elif type == "Atten":
         net = PolicyAttenNetwork(num_inputs=vsize*vsize,num_actions=nactions,hidden_size=HIDDEN_SIZE)
     elif type == "Memory":
@@ -58,23 +84,29 @@ def train(gsize: int,vsize: int,nactions: int,model_name: str,type="Default",loa
         game.reset(hard_reset) 
         log_probs = []
         rewards = []
+        values = []
         state = game.get_state().reshape(-1)
         if type == "Memory" or type=="Atten":
             net.reset()
         pbar = tqdm(range(steps),bar_format='{l_bar}{bar:10}{r_bar}{bar:-10b}')
         trewards = 0
+        entropy_term = 0
         for j in pbar: 
-            action,log_prob = net.get_action(state)
+            action,value,log_prob,entropy = net.get_action(state)
             avec = np.zeros((nactions));avec[action] = 1
             new_state,reward = game.act(avec)
-            log_probs.append(log_prob)
             rewards.append(reward)
+            values.append(value)
+            log_probs.append(log_prob)
+            entropy_term += entropy
+            state = new_state
             trewards += reward
             state = new_state.reshape(-1)
             game.step()
             pbar.set_description(f"Episodes: {i:4} Rewards: {trewards:2}")
+
         recorder.newdata(trewards)
-        update_policy(net,rewards,log_probs)
+        update_policy(net,rewards,values,log_probs,entropy_term,state)
         show_once = 100 
         if i% show_once == show_once -1:
             recorder.plot(PLOT_FILENAME)
@@ -90,7 +122,7 @@ def test(gsize: int,vsize: int,nactions: int,model_name: str,type: str,nlayers=2
     steps = STEPS 
     episodes = EPISODES 
     if type == "Default":
-        net = PolicyNetwork(num_inputs=vsize*vsize,num_actions=nactions,hidden_size=HIDDEN_SIZE)
+        net = ActorCritic(num_inputs=vsize*vsize,num_actions=nactions,hidden_size=HIDDEN_SIZE)
     elif type == "Atten":
         net = PolicyAttenNetwork(num_inputs=vsize*vsize,num_actions=nactions,hidden_size=HIDDEN_SIZE)
     elif type == "Memory":
@@ -109,7 +141,7 @@ def test(gsize: int,vsize: int,nactions: int,model_name: str,type: str,nlayers=2
         trewards = 0
  
         for j in pbar: 
-            action,log_prob = net.get_action(state)
+            action,value,log_prob,_ = net.get_action(state)
             avec = np.zeros((nactions));avec[action] = 1
             new_state,reward = game.act(avec)
             rewards.append(reward)
@@ -120,11 +152,11 @@ def test(gsize: int,vsize: int,nactions: int,model_name: str,type: str,nlayers=2
 
 if __name__ == '__main__':
     EPISODES = 5000
-    STEPS = 2000
+    STEPS = 700
     HIDDEN_SIZE =  64 
-    MODEL_NAME = "PowerMAgentv2-S7"
-    TYPE = "Memory" 
-    VSIZE = 5
+    MODEL_NAME = "A2C/Agent-S7"
+    TYPE = "Default" 
+    VSIZE = 7
     NACTIONS = 6
     PLOT_FILENAME = MODEL_NAME + ".png" 
     HIST_FILENAME = MODEL_NAME + ".pkl" 
@@ -136,7 +168,7 @@ if __name__ == '__main__':
     #         model_name = MODEL_NAME + ".pth", 
     #         type= TYPE,
     #         load_model = None,
-    #         nlayers=4)
+    #         nlayers=NLAYERS)
             
 
     test((14,14),VSIZE, NACTIONS, MODEL_NAME + ".pth",type=TYPE,nlayers=NLAYERS)

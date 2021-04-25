@@ -22,6 +22,7 @@ class PolicyNetwork(nn.Module):
 
     def forward(self, state):
         x = F.relu(self.linear1(state))
+        # x = F.relu(self.linear15(x))
         x = F.softmax(self.linear2(x), dim=1)
         return x 
     
@@ -73,7 +74,7 @@ class PolicyAttenNetwork(nn.Module):
         self.WQ = nn.Linear(num_inputs,hidden_size)
         self.WK = nn.Linear(num_inputs,hidden_size)
         self.WV = nn.Linear(num_inputs,hidden_size)
-        self.cache_size = 5
+        self.cache_size = 1000 
         self.kmem = None 
         self.vmem = None 
         self.linear1 = nn.Linear(hidden_size,hidden_size//2)
@@ -111,7 +112,82 @@ class PolicyAttenNetwork(nn.Module):
         log_prob = torch.log(probs.squeeze(0)[highest_prob_action])
         return highest_prob_action, log_prob
 
-   
+class PolicyAttenNetworkv1(nn.Module):   
+    def __init__(self, num_inputs, num_actions, hidden_size, learning_rate=3e-4):
+        super(PolicyAttenNetwork, self).__init__()
+        self.hidden_size = hidden_size 
+        self.num_actions = num_actions
+        self.WQ = nn.Linear(num_inputs,hidden_size)
+        self.WK = nn.Linear(num_inputs,hidden_size)
+        self.WV = nn.Linear(num_inputs,hidden_size)
+        self.cache_size = 1000 
+        self.kmem = None 
+        self.vmem = None 
+        self.linear1 = nn.Linear(hidden_size,hidden_size//2)
+        self.linear2 = nn.Linear(hidden_size//2,num_actions)
+        self.optimizer = optim.Adam(self.parameters(), lr=learning_rate)
+    
+    def reset(self):
+        self.kmem = None 
+        self.vmem = None 
+ 
+    
+    def forward(self,state):
+        q = self.WQ(state)
+        k = self.WK(state)
+        v = self.WV(state)
+        if self.kmem is None:
+            self.kmem = k
+            self.vmem = v
+        if len(self.kmem) == self.cache_size:
+            self.kmem = self.kmem[:-1,:]
+            self.vmem = self.vmem[:-1,:]
+        dk = k.detach().clone()
+        dv = v.detach().clone()
+        self.kmem = torch.cat([dk,self.kmem],dim=-2)
+        self.vmem = torch.cat([dv,self.vmem],dim=-2)
+        out,attn = attention(q,self.kmem,self.vmem)
+        out = nn.functional.relu(self.linear1(out))
+        out = nn.functional.softmax(self.linear2(out),dim=-1)
+        return out
+
+    def get_action(self, state):
+        state = torch.from_numpy(state).float().unsqueeze(0)
+        probs = self.forward(Variable(state))
+        highest_prob_action = np.random.choice(self.num_actions, p=np.squeeze(probs.detach().numpy()))
+        log_prob = torch.log(probs.squeeze(0)[highest_prob_action])
+        return highest_prob_action, log_prob
+
+
+class PolicyGRUNetwork(nn.Module):
+    def __init__(self, num_inputs, num_actions, hidden_size, learning_rate=3e-4,nlayers=2):
+        super(PolicyGRUNetwork,self).__init__()
+        self.hidden_size = hidden_size
+        input_size = num_inputs
+        self.num_actions = num_actions
+        self.layers = nlayers 
+        self.hidden = torch.zeros(self.layers,1,self.hidden_size)
+        self.gru = nn.GRU(input_size,self.hidden_size,self.layers)
+        self.h0 = torch.randn(self.layers,1,self.hidden_size)
+        self.lin1 = nn.Linear(self.hidden_size,num_actions)
+        self.optimizer = optim.Adam(self.parameters(), lr=learning_rate)
+
+    def reset(self):
+        self.hidden = torch.zeros(self.layers,1,self.hidden_size)
+    
+    def forward(self,state):
+        x, self.hidden = self.gru(state,self.hidden)
+        x = F.relu(self.lin1(x))
+        x = F.softmax(x,dim=-1)
+        return x
+
+    def get_action(self, state):
+        state = torch.from_numpy(state).float().unsqueeze(0).unsqueeze(0)
+        probs = self.forward(Variable(state))[:,0,:]
+        highest_prob_action = np.random.choice(self.num_actions, p=np.squeeze(probs.detach().numpy()))
+        log_prob = torch.log(probs.squeeze(0)[highest_prob_action])
+        return highest_prob_action, log_prob
+
 
 class PolicyMemoryNetwork(nn.Module):
     def __init__(self, num_inputs, num_actions, hidden_size, learning_rate=3e-4):
@@ -140,6 +216,57 @@ class PolicyMemoryNetwork(nn.Module):
 
         return x 
     
+    def get_action(self, state):
+        state = torch.from_numpy(state).float().unsqueeze(0)
+        probs = self.forward(Variable(state))
+        highest_prob_action = np.random.choice(self.num_actions, p=np.squeeze(probs.detach().numpy()))
+        log_prob = torch.log(probs.squeeze(0)[highest_prob_action])
+        return highest_prob_action, log_prob
+
+
+class PolicyGRUTAgent:
+
+    def __init__(self, num_inputs, num_actions, hidden_size, learning_rate=3e-4):
+        super(PolicyGRUTAgent, self).__init__()
+        self.hidden_size = hidden_size 
+        self.num_actions = num_actions
+        self.input_size = num_inputs
+        self.gruQ = nn.GRU(num_inputs,hidden_size,1)
+        self.gruW = nn.GRU(num_inputs,hidden_size,1)
+        self.gruK = nn.GRU(num_inputs,hidden_size,1) 
+
+        
+        self.cache_size = 1000 
+        self.kmem = None 
+        self.vmem = None 
+        self.linear1 = nn.Linear(hidden_size,hidden_size//2)
+        self.linear2 = nn.Linear(hidden_size//2,num_actions)
+        self.optimizer = optim.Adam(self.parameters(), lr=learning_rate)
+    
+    def reset(self):
+        self.kmem = None 
+        self.vmem = None 
+ 
+    
+    def forward(self,state):
+        q = self.WQ(state)
+        k = self.WK(state)
+        v = self.WV(state)
+        if self.kmem is None:
+            self.kmem = k
+            self.vmem = v
+        if len(self.kmem) == self.cache_size:
+            self.kmem = self.kmem[:-1,:]
+            self.vmem = self.vmem[:-1,:]
+        dk = k.detach().clone()
+        dv = v.detach().clone()
+        self.kmem = torch.cat([dk,self.kmem],dim=-2)
+        self.vmem = torch.cat([dv,self.vmem],dim=-2)
+        out,attn = attention(q,self.kmem,self.vmem)
+        out = nn.functional.relu(self.linear1(out))
+        out = nn.functional.softmax(self.linear2(out),dim=-1)
+        return out
+
     def get_action(self, state):
         state = torch.from_numpy(state).float().unsqueeze(0)
         probs = self.forward(Variable(state))
