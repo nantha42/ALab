@@ -7,6 +7,7 @@ import torch.optim as optim
 import torch.nn.functional as F
 from torch.autograd import Variable
 import matplotlib.pyplot as plt
+import pandas as pd
 
 
 # hyperparameters
@@ -58,7 +59,7 @@ def a2c(env):
 
         state = env.reset()
         for steps in range(num_steps):
-            env.render()
+            # env.render()
             value, policy_dist = actor_critic.forward(state)
             value = value.detach().numpy()[0,0]
             dist = policy_dist.detach().numpy() 
@@ -108,14 +109,14 @@ def a2c(env):
 
     
     # Plot results
-    smoothed_rewards = pd.Series.rolling(pd.Series(all_rewards), 10).mean()
-    smoothed_rewards = [elem for elem in smoothed_rewards]
-    plt.plot(all_rewards)
-    plt.plot(smoothend_rewards)
-    plt.plot()
-    plt.xlabel('Episode')
-    plt.ylabel('Reward')
-    plt.show()
+        smoothed_rewards = pd.Series.rolling(pd.Series(all_rewards), 10).mean()
+        smoothed_rewards = [elem for elem in smoothed_rewards]
+        plt.plot(all_rewards)
+        plt.plot(smoothed_rewards)
+        plt.plot()
+        plt.xlabel('Episode')
+        plt.ylabel('Reward')
+        plt.savefig("../../graphs/a2c_race.png")
 
     plt.plot(all_lengths)
     plt.plot(average_lengths)

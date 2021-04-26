@@ -55,7 +55,7 @@ def update_policy(policy_network, rewards, log_probs):
     policy_network.optimizer.step()
 
 def main():
-    env = gym.make('LunarLander-v2')
+    env = gym.make('CartPole-v0')
     policy_net = PolicyNetwork(env.observation_space.shape[0], env.action_space.n, 128)
     
     max_episode_num = 5000
@@ -87,10 +87,11 @@ def main():
             
             state = new_state
         
-    plt.plot(numsteps)
-    plt.plot(avg_numsteps)
-    plt.xlabel('Episode')
-    plt.show()
+        plt.plot(numsteps)
+        plt.plot(all_rewards)
+        plt.xlabel('Episode')
+        plt.ylabel('rewards')
+        plt.savefig("../../graphs/reinforce_race.png")
 
 
 if __name__ == '__main__':
