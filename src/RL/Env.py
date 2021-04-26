@@ -29,6 +29,8 @@ class PowerGame:
         self.enable_draw = ENABLE_DRAW 
         self.visibility = None
         self.processors = []
+        self.current_step = 0
+        self.total_rewards = 0
         #initializing agents
         self.RES = 9
         self.PROCESSOR = 8
@@ -87,6 +89,7 @@ class PowerGame:
             self.reward = 2
         
         new_state = self.get_state()
+        self.total_rewards += reward
         return new_state,reward
         
 
@@ -134,6 +137,8 @@ class PowerGame:
         self.grid = np.zeros((v,h))
         self.agent_pos = np.array([0,0]) 
         self.res = 0
+        self.total_rewards =0
+        self.current_step = 0
         self.items = 0
         self.collected = 0
         self.processors = []
@@ -156,6 +161,8 @@ class PowerGame:
         self.draw_items()
         self.render_text(f"Collected :{self.collected:3}",(0,0))
         self.render_text(f"Items     :{self.items:3}",(0,20))
+        self.render_text(f"Steps     :{self.current_step:4}",(250,0))
+        self.render_text(f"Rewards :{self.total_rewards:3}",(250,20))
         # self.agent_pos[1] = ((self.agent_pos[1]+1)%30)
         # if self.agent_pos[1] == 0:
         #     self.agent_pos[0] = ((self.agent_pos[0]+1)%20)
@@ -211,6 +218,7 @@ class PowerGame:
     def step(self,speed=0):
         self.event_handler()
         self.update()
+        self.current_step += 1
         if self.enable_draw:
             self.draw()
             self.clock.tick(speed)

@@ -29,12 +29,26 @@ def update_policy(policy_network, rewards, log_probs):
     policy_network.optimizer.step()
 
 
-
-def train(gsize: int,vsize: int,nactions: int,model_name: str,type="Default",load_model=None,nlayers = 2):
+def train(config):
+# def train(gsize: int,vsize: int,nactions: int,model_name: str,type="Default",load_model=None,nlayers = 2):
     """
         Train()
         Use to train the network
     """
+
+    gsize = config.GSIZE
+    vsize = config.VSIZE
+    nactions = config.NACTIONS
+    model_name = config.MODEL_NAME
+    type = config.TYPE 
+    nlayers = config.NLAYERS
+    load_model = config.LOADMODEL
+    HIDDEN_SIZE = config.HIDDEN_SIZE
+    HIST_FILENAME = config.HIST_FILENAME
+    PLOT_FILENAME = config.PLOT_FILENAME
+
+
+
     hs = 32
     kr,kc = gsize
     game = PowerGame(kr,kc,vsize)
@@ -82,7 +96,18 @@ def train(gsize: int,vsize: int,nactions: int,model_name: str,type="Default",loa
         torch.save(net.state_dict(),"../../models/" + model_name) 
     recorder.save(HIST_FILENAME)
 
-def test(gsize: int,vsize: int,nactions: int,model_name: str,type: str,nlayers=2):
+def test(config):
+
+# def test(gsize: int,vsize: int,nactions: int,model_name: str,type: str,nlayers=2):
+    gsize = config.GSIZE
+    vsize = config.VSIZE
+    nactions = config.NACTIONS
+    model_name = config.MODEL_NAME
+    type = config.TYPE 
+    nlayers = config.NLAYERS
+    HIDDEN_SIZE = config.HIDDEN_SIZE
+
+
     print(int(time.time())) 
     np.random.seed(int(time.time()))
     kr,kc = gsize
@@ -118,17 +143,46 @@ def test(gsize: int,vsize: int,nactions: int,model_name: str,type: str,nlayers=2
             state = new_state.reshape(-1)
             game.step()
 
+
+
+class Config:
+    def __init__(self,model_name):
+        self.MODEL_NAME = model_name + ".pth"
+        self.TYPE = "Default" 
+        self.NACTIONS = 6 
+        self.PLOT_FILENAME = model_name + ".png"
+        self.HIST_FILENAME = model_name + ".pkl" 
+        self.NLAYERS = 4 
+        self.HIDDEN_SIZE = 64 
+        self.VSIZE = 5
+        self.GSIZE = (14,14)
+        self.LOADMODEL = False
+
+
+
 if __name__ == '__main__':
     EPISODES = 5000
     STEPS = 2000
-    HIDDEN_SIZE =  64 
-    MODEL_NAME = "PowerMAgentv2-S7"
-    TYPE = "Memory" 
-    VSIZE = 5
-    NACTIONS = 6
-    PLOT_FILENAME = MODEL_NAME + ".png" 
-    HIST_FILENAME = MODEL_NAME + ".pkl" 
-    NLAYERS = 2
+
+    c = Config("PowerMAgent4Layerv2-S5")
+    c.HIDDEN_SIZE =  64 
+    c.TYPE = "Memory" 
+    c.VSIZE = 5
+    c.NACTIONS = 6
+    c.NLAYERS = 4
+    c.GSIZE= (14,14)
+    
+
+    # HIDDEN_SIZE =  64 
+
+    # MODEL_NAME = "PowerMAgent4Layerv2-S5"
+    # TYPE = "Memory" 
+    # VSIZE = 5
+    # NACTIONS = 6
+    # PLOT_FILENAME = MODEL_NAME + ".png" 
+    # HIST_FILENAME = MODEL_NAME + ".pkl" 
+    # NLAYERS = 4
+    # GSIZE = (24,24)
     
     # train(  gsize=(14,14),
     #         vsize=VSIZE,
@@ -138,5 +192,5 @@ if __name__ == '__main__':
     #         load_model = None,
     #         nlayers=4)
             
-
-    test((14,14),VSIZE, NACTIONS, MODEL_NAME + ".pth",type=TYPE,nlayers=NLAYERS)
+    test(c)
+    # test(GSIZE,VSIZE, NACTIONS, MODEL_NAME + ".pth",type=TYPE,nlayers=NLAYERS)

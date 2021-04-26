@@ -39,6 +39,49 @@ class ActorCritic(nn.Module):
         return action, value,log_prob, entropy
         
 
+class ActorCriticGRU1(nn.Module):
+    def __init__(self,num_inputs,num_actions,hidden_size,learning_rate = 3e-4,nlayers=2):
+        super().__init__()
+        input_size = num_inputs
+        self.num_actions = num_actions
+        self.layers = nlayers
+        self.hidden_size = hidden_size
+        self.hiddenA = torch.zeros(self.layers,1,self.hidden_size)
+        self.hiddenV = torch.zeros(self.layers,1,self.hidden_size)
+        self.gruA = nn.GRU(input_size,self.hidden_size,self.layers)
+
+        self.critic_linear1 = nn.Linear(num_inputs,hidden_size)
+        self.critic_linear2 = nn.Linear(hidden_size, 1)
+
+        self.actor_linear1 = nn.Linear(hidden_size, num_actions)
+        self.optimizer = optim.Adam(self.parameters(),lr = learning_rate)
+    
+    def reset(self):
+        self.hiddenA = torch.zeros(self.layers,1,self.hidden_size)
+
+    def forward(self,state):
+        Ax,self.hiddenA = self.gruA(state,self.hiddenA)
+        Vx = F.relu(self.critic_linear1(state))
+        value = F.relu(self.critic_linear2(Vx))
+        policy_dist = F.relu(self.actor_linear1(Ax))
+        policy_dist = F.softmax(policy_dist,dim=-1)
+        return value,policy_dist
+
+
+    def get_action(self,state):
+        state = Variable(torch.from_numpy(state).float().unsqueeze(0).unsqueeze(0))
+        v, probs = self.forward(state)
+        value = v.detach().numpy()[0,0,0]
+        probs = probs[:,0,:]
+        dist = probs.detach().numpy()
+
+        action = np.random.choice(self.num_actions,p = np.squeeze(dist))
+        log_prob = torch.log(probs.squeeze(0))[action]
+        entropy = -np.sum(np.mean(dist)*np.log(dist))
+        return action, value,log_prob, entropy
+        
+
+
 class ActorCriticGRU(nn.Module):
     def __init__(self,num_inputs,num_actions,hidden_size,learning_rate = 3e-4,nlayers=2):
         super(ActorCriticGRU, self).__init__()
