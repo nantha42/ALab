@@ -205,13 +205,6 @@ if __name__ == '__main__':
     c.GSIZE= (14,14)
 
     # train(c)
-   # train(  gsize=(14,14),
-    #         vsize=VSIZE,
-    #         nactions= NACTIONS,
-    #         model_name = MODEL_NAME + ".pth", 
-    #         type= TYPE,
-    #         load_model = None,
-    #         nlayers=NLAYERS)
-            
+           
     test(c)
     # test((14,14),VSIZE, NACTIONS, MODEL_NAME + ".pth",type=TYPE,nlayers=NLAYERS)

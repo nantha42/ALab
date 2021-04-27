@@ -5,7 +5,7 @@ import matplotlib.pyplot as plt
 #from utils import plot_learning_curve
 
 if __name__ == '__main__':
-	env = gym.make('LunarLander-v2')
+	env = gym.make('CartPole-v0')
 	N = 20
 	batch_size = 5
 	n_epochs = 4
@@ -16,7 +16,7 @@ if __name__ == '__main__':
 			n_epochs = n_epochs,
 			input_dims = env.observation_space.shape)
 
-	agent.load_models()
+	# agent.load_models()
 	n_games = 300
 	figure_file = '../../graphs/ppo_cartpol.png'
 	best_score = env.reward_range[0]

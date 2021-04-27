@@ -27,3 +27,4 @@ class RLGraph:
         plt.xlabel('Episodes')
         plt.ylabel('Rewards')
         plt.savefig("../../graphs/"+name)
+        plt.clf()

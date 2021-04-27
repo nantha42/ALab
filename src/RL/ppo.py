@@ -136,7 +136,6 @@ class Agent:
 		probs = T.squeeze(dist.log_prob(action)).item()
 		action = T.squeeze(action).item()
 		value = T.squeeze(value).item()
-
 		return action,probs, value
 	
 	def learn(self):
@@ -169,8 +168,8 @@ class Agent:
 				new_probs = dist.log_prob(actions) # Here a doubt
 				prob_ratio = new_probs.exp() / old_probs.exp()
 				weighted_probs = advantage[batch] * prob_ratio
-				weighted_clipped_probs = T.clamp(prob_ratio, 1-self.policy_clip,
-					1+ self.policy_clip) *advantage[batch] 
+				weighted_clipped_probs = T.clamp(prob_ratio, 1 -self.policy_clip,
+					1 + self.policy_clip) *advantage[batch] 
 				actor_loss = -T.min(weighted_probs,weighted_clipped_probs).mean()
 				returns = advantage[batch] + values[batch] 
 				critic_loss = (returns - critic_value)**2 
@@ -184,10 +183,3 @@ class Agent:
 				self.actor.optimizer.step()
 				self.critic.optimizer.step()
 		self.memory.clear_memory()
-
-					
-
-	
-
-
-			
