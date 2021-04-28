@@ -156,6 +156,7 @@ class Agent:
 
 			advantage = T.tensor(advantage).to(self.actor.device)
 			values = T.tensor(values).to(self.actor.device)
+			sum_total_loss = 0
 			for batch in batches:
 				states = T.tensor(state_arr[batch], dtype = T.float).to(self.actor.device)
 				old_probs = T.tensor(old_probs_arr[batch]).to(self.actor.device)
@@ -168,8 +169,8 @@ class Agent:
 				new_probs = dist.log_prob(actions) # Here a doubt
 				prob_ratio = new_probs.exp() / old_probs.exp()
 				weighted_probs = advantage[batch] * prob_ratio
-				weighted_clipped_probs = T.clamp(prob_ratio, 1 -self.policy_clip,
-					1 + self.policy_clip) *advantage[batch] 
+				weighted_clipped_probs = T.clamp(prob_ratio, 0.5-self.policy_clip,
+					0.5+ self.policy_clip) *advantage[batch] 
 				actor_loss = -T.min(weighted_probs,weighted_clipped_probs).mean()
 				returns = advantage[batch] + values[batch] 
 				critic_loss = (returns - critic_value)**2 
@@ -179,7 +180,8 @@ class Agent:
 				self.actor.optimizer.zero_grad()
 				self.critic.optimizer.zero_grad()
 				total_loss.backward()
-
+				sum_total_loss += total_loss.item()
 				self.actor.optimizer.step()
 				self.critic.optimizer.step()
+			print(sum_total_loss)
 		self.memory.clear_memory()

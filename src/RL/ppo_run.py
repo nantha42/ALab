@@ -27,8 +27,10 @@ def train1(config):
     batch_size = 4
     n_epochs = 4
     print(env.observation_space.shape)
-    net = NormalNet(env.observation_space.shape[0],  env.action_space.n)
-    agent = Agent(net) 
+    actor = ActorNet(env.observation_space.shape[0],  env.action_space.n)
+    critic = CriticNet(env.observation_space.shape[0],  env.action_space.n)
+
+    agent = CAgent(actor,critic) 
     recorder = RLGraph()
 
     for i in range(300):
@@ -37,8 +39,8 @@ def train1(config):
         n_steps = 0
         score = 0
         while not done:
-            action,prob,val = agent.choose_action(observation) 
-            env.render()
+            action,prob,val,entropy = agent.choose_action(observation) 
+            # env.render()
             observation_,reward,done,info = env.step(action)
             score+= reward 
             n_steps += 1
@@ -75,15 +77,23 @@ def train(config):
     recorder = RLGraph()
      
     if type == "Default":
-        net = NormalNet(input_dims = vsize*vsize,n_actions = nactions)
+        actor = ActorNet(vsize*vsize,  nactions)
+        critic = CriticNet(vsize*vsize, nactions)
+    
+    if type == "Memory":
+        actor = ActorGRUNet(vsize*vsize,  nactions)
+        critic = CriticNet(vsize*vsize, nactions)
+ 
+
+        # net = NormalNet(input_dims = vsize*vsize,n_actions = nactions)
 
     if load_model :
         net.checkpoint_file = "../../models/"+ model_name
         net.load_checkpoint()
+    agent = CAgent(actor,critic)
+    # agent = Agent(net,batch_size=5)
 
-    agent = Agent(net,batch_size=100)
-
-
+    entropy_term = 0
     for i in range(episodes):
         hard_reset = False 
         game.reset(hard_reset) 
@@ -92,17 +102,19 @@ def train(config):
         values = []
         state = game.get_state().reshape(-1)
         if type == "Memory" or type=="Atten":
-            net.reset()
+            agent.actor.reset()
         pbar = tqdm(range(steps),bar_format='{l_bar}{bar:10}{r_bar}{bar:-10b}')
         trewards = 0
         entropy_term = 0
         for j in pbar: 
-            action, prob, value  = agent.choose_action(state)
+            action, prob, value, entropy  = agent.choose_action(state)
+            # print(entropy)
+            entropy_term += entropy.item()
             avec = np.zeros((nactions));avec[action] = 1
             new_state,reward = game.act(avec)
             agent.remember(state,action,prob,value,reward)
             if j % 50 == 0:
-                agent.learn()
+                agent.learn(entropy_term)
 
             state = new_state
             trewards += reward
@@ -111,21 +123,19 @@ def train(config):
             pbar.set_description(f"Episodes: {i:4} Rewards: {trewards:2}")
 
         recorder.newdata(trewards)
-        show_once = 10 
+        show_once = 1 
         if i% show_once == show_once -1:
             recorder.plot(PLOT_FILENAME)
             recorder.save(HIST_FILENAME)
-        agent.net.checkpoint_file = "../../models/" + model_name 
-        agent.save_model()
+        # agent.net.checkpoint_file = "../../models/" + model_name 
+        # agent.save_model()
         # torch.save(net.state_dict(),"../../models/" + model_name) 
     recorder.save(HIST_FILENAME)
 
 
-
-
 if __name__ == '__main__':
     EPISODES = 5000
-    STEPS = 2000
+    STEPS = 500
 
     c = Config("PPO/NAgent-S5")
     c.HIDDEN_SIZE =  64 
@@ -135,5 +145,5 @@ if __name__ == '__main__':
     c.NLAYERS = 4
     c.GSIZE= (14,14)
 
-    train1(c)
+    train(c)
 
