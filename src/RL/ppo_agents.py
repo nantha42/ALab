@@ -62,7 +62,7 @@ class Network(nn.Module):
         if self.checkpoint_file != "":
             self.load_state_dict(self.state_dict(),self.checkpoint_file)
 
-class ActorNet(nn.Module):
+class ActorNet(Network):
     def __init__(self,input_dims,n_actions,):
         super().__init__()
         self.actor = Sequential(
@@ -73,14 +73,14 @@ class ActorNet(nn.Module):
             nn.Linear(256,n_actions),
             nn.Softmax(dim=-1),
         )
-        self.optimizer = optim.Adam(self.parameters(),lr = 0.0003)
+        self.optimizer = optim.Adam(self.parameters(),lr = 0.00003)
     
     def forward(self,x):
         dist = self.actor(x)
         dist = Categorical(dist)
         return dist
 
-class CriticNet(nn.Module):
+class CriticNet(Network):
     def __init__(self,input_dims,n_actions,):
         super().__init__()
         self.critic = Sequential(
@@ -90,7 +90,7 @@ class CriticNet(nn.Module):
             nn.ReLU(),
             nn.Linear(256,1),
         )
-        self.optimizer = optim.Adam(self.parameters(),lr = 0.0003)
+        self.optimizer = optim.Adam(self.parameters(),lr = 0.00003)
     
     def forward(self,x):
         v = self.critic(x)
@@ -109,13 +109,15 @@ class ActorGRUNet(Network):
             nn.Linear(128,n_actions),
             nn.Softmax(dim=-1),
         )
-        self.optimizer = optim.Adam(self.parameters(),lr = 0.003)
+        self.optimizer = optim.Adam(self.parameters(),lr = 0.00003)
 
     def reset(self) :
         self.hidden = T.zeros(self.layers,1,self.hidden_size)
 
     def forward(self,x):
+        x = x.unsqueeze(0)
         x,self.hidden = self.gru(x,self.hidden)
+        x = x.squeeze(0)
         dist = self.actor(x)
         dist = Categorical(dist)
         return dist
@@ -142,7 +144,7 @@ class NormalNet(Network):
         return dist,value
     
 class CAgent:
-    def __init__(self,actor,critic,batch_size=5):
+    def __init__(self,actor,critic,batch_size=5,model_name = None):
         self.gamma = 0.99
         self.policy_clip = 0.2
         self.n_epochs = 5
@@ -151,15 +153,23 @@ class CAgent:
         self.actor= actor 
         self.critic = critic
         self.memory = PPOMemory(batch_size)
+        if model_name != None:
+            self.actor.checkpoint_file = "../../models/PPO/Actor" + model_name
+            self.critic.checkpoint_file = "../../models/PPO/Critic" + model_name
+    
     
     def remember(self,state,action,probs,vals,reward, done = 0):
         self.memory.store_memory(state,action,probs,vals,reward,done)
     
     def save_model(self):
-        self.net.save_checkpoint()
+        # self.net.save_checkpoint()
+        self.actor.save_checkpoint()
+        self.critic.save_checkpoint()
 
     def load_model(self):
-        self.net.load_checkpoint()
+        self.actor.load_checkpoint()
+        self.critic.load_checkpoint()
+
 
     def choose_action(self,state):
         state = T.from_numpy(state).float().unsqueeze(0)

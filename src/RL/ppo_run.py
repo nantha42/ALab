@@ -87,10 +87,9 @@ def train(config):
 
         # net = NormalNet(input_dims = vsize*vsize,n_actions = nactions)
 
+    agent = CAgent(actor,critic,model_name=model_name)
     if load_model :
-        net.checkpoint_file = "../../models/"+ model_name
-        net.load_checkpoint()
-    agent = CAgent(actor,critic)
+        agent.load_model()
     # agent = Agent(net,batch_size=5)
 
     entropy_term = 0
@@ -128,7 +127,7 @@ def train(config):
             recorder.plot(PLOT_FILENAME)
             recorder.save(HIST_FILENAME)
         # agent.net.checkpoint_file = "../../models/" + model_name 
-        # agent.save_model()
+        agent.save_model()
         # torch.save(net.state_dict(),"../../models/" + model_name) 
     recorder.save(HIST_FILENAME)
 
@@ -137,9 +136,9 @@ if __name__ == '__main__':
     EPISODES = 5000
     STEPS = 500
 
-    c = Config("PPO/NAgent-S5")
+    c = Config("GRUAgent-S5")
     c.HIDDEN_SIZE =  64 
-    c.TYPE = "Default" 
+    c.TYPE = "Memory" 
     c.VSIZE = 5
     c.NACTIONS = 6
     c.NLAYERS = 4
