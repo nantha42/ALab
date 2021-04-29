@@ -220,7 +220,7 @@ class PPORMemory:
         n_states = len(self.states)
         batch_start = np.arange(0,n_states,self.batch_size)
         indices = np.arange(n_states,dtype = np.int64)
-        # np.random.shuffle(indices)
+        np.random.shuffle(indices)
         batches = [indices[i:i+self.batch_size] for i in batch_start]
 
         return np.array(self.states),\
@@ -339,10 +339,12 @@ class MemoryAgent:
         return action,probs, value, entropy, self.actor_hidden,
     
     def learn(self,entropy = 0):
+        T.autograd.set_detect_anomaly(True)
         for _ in range(self.n_epochs):
             state_arr, action_arr, old_probs_arr, vals_arr, \
                 reward_arr, hidden_arr, dones_arr, batches = \
                     self.memory.generate_batches()
+            
             values = vals_arr
             advantage = np.zeros(len(reward_arr),dtype = np.float32)
 
@@ -361,9 +363,10 @@ class MemoryAgent:
                 states = T.tensor(state_arr[batch]).float()
                 old_probs = T.tensor(old_probs_arr[batch])
                 actions = T.tensor(action_arr[batch])
-                hiddens = hidden_arr[batch]
-                ah = T.tensor(hiddens[:,0,:,:,:]).transpose(0,2).squeeze(0)
-
+                hiddens = hidden_arr[batch].tolist()
+                
+                ah = T.stack(hiddens).transpose(0,2).squeeze(0).detach().clone()
+                # ah = T.stack(hiddens[:,0,:,:,:]).transpose(0,2).squeeze(0)
 
                 dist,_,grout= self.actor(states,ah)
                 critic_value = self.critic(grout)
@@ -382,10 +385,13 @@ class MemoryAgent:
                 self.actor.optimizer.zero_grad()
                 self.critic.optimizer.zero_grad()
                 total_loss.backward(retain_graph=True)
-                sum_total_loss += total_loss.item()
                 self.actor.optimizer.step()
                 self.critic.optimizer.step()
-            # print(sum_total_loss)
+            #     self.actor.optimizer.step()
+            #     self.actor.optimizer.zero_grad()
+            #     self.critic.optimizer.step()
+            #     self.critic.optimizer.zero_grad()
+            # # print(sum_total_loss)
 
         self.memory.clear_memory()
 

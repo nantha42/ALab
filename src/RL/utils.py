@@ -9,12 +9,10 @@ class RLGraph:
     def save(self,name):
         f = open("../../history/"+name,"wb")
         pickle.dump(self.hist,f)
-        print("Saved History...")
     
     def load(self,name):
         f = open("../../history/"+name,"rb")
         pickle.load(f,self.hist)
-        print("Loaded History...")
 
     def newdata(self,x):
         self.hist.append(x)
