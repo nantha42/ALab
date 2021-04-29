@@ -7,9 +7,9 @@ from utils import *
 
 GAMMA = 0.99
 
-def update_policy(policy_network,rewards,values,log_probs,E,new_state):
+def update_policy(policy_network,rewards,values,log_probs,E,new_state,type):
     state = Variable(torch.from_numpy(new_state)).float().unsqueeze(0)
-    if TYPE == "Memory":
+    if type == "Memory":
         state = state.unsqueeze(0)
     Qval,_ = policy_network.forward(state)
     Qval = Qval.detach().numpy()[0,0]
@@ -90,11 +90,12 @@ def train(config):
     elif type == "Memory":
         net = ActorCriticGRU1(num_inputs=vsize*vsize,num_actions=nactions,hidden_size=HIDDEN_SIZE,nlayers=nlayers)
 
-    if load_model is not None:
-        net.load_state_dict(torch.load("../../models/"+load_model))
+    if load_model :
+        net.load_state_dict(torch.load("../../models/"+model_name))
 
     for i in range(episodes):
         hard_reset = False 
+        game.enable_draw = True if i%5==0 else False
         game.reset(hard_reset) 
         log_probs = []
         rewards = []
@@ -120,8 +121,8 @@ def train(config):
             pbar.set_description(f"Episodes: {i:4} Rewards: {trewards:2}")
 
         recorder.newdata(trewards)
-        update_policy(net,rewards,values,log_probs,entropy_term,state)
-        show_once = 100 
+        update_policy(net,rewards,values,log_probs,entropy_term,state,type)
+        show_once = 1 
         if i% show_once == show_once -1:
             recorder.plot(PLOT_FILENAME)
             recorder.save(HIST_FILENAME)
@@ -194,17 +195,17 @@ class Config:
 if __name__ == '__main__':
     ##GLOBAL##
     EPISODES = 5000
-    STEPS = 2000
+    STEPS = 500
 
-    c = Config("A2C/M4LAgentv2-S7")
-    c.HIDDEN_SIZE =  64 
+    c = Config("A2C/TM4LAgentv2-S5")
+    c.HIDDEN_SIZE =  128 
     c.TYPE = "Memory" 
     c.VSIZE = 5
     c.NACTIONS = 6
     c.NLAYERS = 4
     c.GSIZE= (14,14)
 
-    # train(c)
+    train(c)
            
-    test(c)
+    # test(c)
     # test((14,14),VSIZE, NACTIONS, MODEL_NAME + ".pth",type=TYPE,nlayers=NLAYERS)

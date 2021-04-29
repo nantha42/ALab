@@ -387,11 +387,5 @@ class MemoryAgent:
                 total_loss.backward(retain_graph=True)
                 self.actor.optimizer.step()
                 self.critic.optimizer.step()
-            #     self.actor.optimizer.step()
-            #     self.actor.optimizer.zero_grad()
-            #     self.critic.optimizer.step()
-            #     self.critic.optimizer.zero_grad()
-            # # print(sum_total_loss)
-
         self.memory.clear_memory()
 
