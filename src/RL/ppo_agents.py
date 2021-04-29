@@ -49,12 +49,14 @@ class PPOMemory:
         self.vals =    []
 
 
+
 class Network(nn.Module):
     def __init__(self):
         super().__init__()
         self.checkpoint_file = ""
     
     def save_checkpoint(self):
+
         if self.checkpoint_file != "":
             T.save(self.state_dict(),self.checkpoint_file)
     
@@ -96,31 +98,6 @@ class CriticNet(Network):
         v = self.critic(x)
         return v 
 
-class ActorGRUNet(Network):
-    def __init__(self,input_dims,n_actions,nlayers=2):
-        super().__init__()
-        input_size = input_dims
-        self.num_actions =n_actions 
-        self.layers = nlayers
-        self.hidden_size = 128 
-        self.gru = nn.GRU(input_size,self.hidden_size,self.layers)
-        self.hidden = T.zeros(self.layers,1,self.hidden_size)
-        self.actor = Sequential(
-            nn.Linear(128,n_actions),
-            nn.Softmax(dim=-1),
-        )
-        self.optimizer = optim.Adam(self.parameters(),lr = 0.00003)
-
-    def reset(self) :
-        self.hidden = T.zeros(self.layers,1,self.hidden_size)
-
-    def forward(self,x):
-        x = x.unsqueeze(0)
-        x,self.hidden = self.gru(x,self.hidden)
-        x = x.squeeze(0)
-        dist = self.actor(x)
-        dist = Categorical(dist)
-        return dist
 
 class NormalNet(Network):
     def __init__(self,input_dims,n_actions,):
@@ -149,14 +126,12 @@ class CAgent:
         self.policy_clip = 0.2
         self.n_epochs = 5
         self.gae_lambda = 0.95 
-
         self.actor= actor 
         self.critic = critic
         self.memory = PPOMemory(batch_size)
         if model_name != None:
             self.actor.checkpoint_file = "../../models/PPO/Actor" + model_name
             self.critic.checkpoint_file = "../../models/PPO/Critic" + model_name
-    
     
     def remember(self,state,action,probs,vals,reward, done = 0):
         self.memory.store_memory(state,action,probs,vals,reward,done)
@@ -230,39 +205,150 @@ class CAgent:
 
         self.memory.clear_memory()
 
-class Agent:
-    def __init__(self,network,batch_size=5):
+class PPORMemory:
+    def __init__(self,batch_size):
+        self.states = []
+        self.probs = []
+        self.vals = []
+        self.actions = []
+        self.rewards = []
+        self.dones = []
+        self.hidden_states = []
+        self.batch_size = batch_size
+
+    def generate_batches(self):
+        n_states = len(self.states)
+        batch_start = np.arange(0,n_states,self.batch_size)
+        indices = np.arange(n_states,dtype = np.int64)
+        # np.random.shuffle(indices)
+        batches = [indices[i:i+self.batch_size] for i in batch_start]
+
+        return np.array(self.states),\
+				np.array(self.actions),\
+				np.array(self.probs),\
+				np.array(self.vals),\
+				np.array(self.rewards),\
+                np.array(self.hidden_states),\
+				np.array(self.dones),\
+				batches
+
+    def store_memory(self,state,action,probs,vals,reward,hidden,done):
+        self.states.append(state)
+        self.actions.append(action)
+        self.probs.append(probs)
+        self.vals.append(vals)
+        self.rewards.append(reward)
+        self.hidden_states.append(hidden)
+        self.dones.append(done)
+		
+    def clear_memory(self ):
+        if len(self.states) > 500:
+            self.states =  []
+            self.probs =   []
+            self.actions = []
+            self.rewards = []
+            self.dones =   []
+            self.hidden_states = []
+            self.vals =    []
+
+
+class ActorGRUNet(Network):
+    def __init__(self,input_dims,n_actions,nlayers=2):
+        super().__init__()
+        input_size = input_dims
+        self.num_actions =n_actions 
+        self.layers = nlayers
+        self.hidden_size = 128 
+        self.gru = nn.GRU(input_size,self.hidden_size,self.layers)
+        # self.hidden = T.zeros(self.layers,1,self.hidden_size)
+        self.actor = Sequential(
+            nn.Linear(128,n_actions),
+            nn.Softmax(dim=-1),
+        )
+        self.optimizer = optim.Adam(self.parameters(),lr = 0.00003)
+
+    def forward(self,x,hidden):
+        x = x.unsqueeze(0)
+        x,h = self.gru(x,hidden)
+        x = x.squeeze(0)
+        dist = self.actor(x)
+        dist = Categorical(dist)
+        return dist,h
+
+class CriticGRUNet(Network):
+    def __init__(self,input_dims,n_actions,nlayers=2):
+        super().__init__()
+        input_size = input_dims
+        self.num_actions =n_actions 
+        self.layers = nlayers
+        self.hidden_size = 128 
+        self.gru = nn.GRU(input_size,self.hidden_size,self.layers)
+        # self.hidden = T.zeros(self.layers,1,self.hidden_size)
+        self.critic = Sequential(
+            nn.Linear(128,1),
+        )
+        self.optimizer = optim.Adam(self.parameters(),lr = 0.00003)
+
+    def forward(self,x,hidden):
+        x = x.unsqueeze(0)
+        x,h = self.gru(x,hidden)
+        x = x.squeeze(0)
+        v = self.critic(x)
+        return v,h
+
+
+class MemoryAgent:
+    def __init__(self,actor,critic,batch_size=5,model_name = None):
         self.gamma = 0.99
         self.policy_clip = 0.2
-        self.n_epochs = 5
+        self.n_epochs = 15
         self.gae_lambda = 0.95 
+        
+        self.actor= actor 
+        self.critic = critic
+        
+        self.actor_hidden = T.zeros(self.actor.layers,1,self.actor.hidden_size)
+        self.critic_hidden = T.zeros(self.critic.layers,1,self.critic.hidden_size)
 
-        self.net = network
-        self.memory = PPOMemory(batch_size)
+        self.memory = PPORMemory(batch_size)
+
+        if model_name != None:
+            self.actor.checkpoint_file = "../../models/PPO/MActor" + model_name
+            self.critic.checkpoint_file = "../../models/PPO/MCritic" + model_name
     
-    def remember(self,state,action,probs,vals,reward, done = 0):
-        self.memory.store_memory(state,action,probs,vals,reward,done)
+    def reset(self):
+        self.actor_hidden = T.zeros(self.actor.layers,1,self.actor.hidden_size)
+        self.critic_hidden = T.zeros(self.critic.layers,1,self.critic.hidden_size)
+
+    
+    def remember(self,state,action,probs,vals,reward, hidden,done = 0):
+        self.memory.store_memory(state,action,probs,vals,reward,hidden,done)
     
     def save_model(self):
-        self.net.save_checkpoint()
+        # self.net.save_checkpoint()
+        self.actor.save_checkpoint()
+        self.critic.save_checkpoint()
 
     def load_model(self):
-        self.net.load_checkpoint()
+        self.actor.load_checkpoint()
+        self.critic.load_checkpoint()
+
 
     def choose_action(self,state):
         state = T.from_numpy(state).float().unsqueeze(0)
-        dist,value = self.net(state)
+        dist,self.actor_hidden= self.actor(state,self.actor_hidden)
+        value,self.critic_hidden = self.critic(state,self.critic_hidden)
         action = dist.sample()
         probs = T.squeeze(dist.log_prob(action)).item()
         action = T.squeeze(action).item()
         value = T.squeeze(value).item()
         entropy = -T.sum(T.mean(dist.probs) * T.log(dist.probs))
-        return action,probs, value, entropy
+        return action,probs, value, entropy, self.actor_hidden.clone().detach().numpy(),self.critic_hidden.clone().detach().numpy()
     
     def learn(self,entropy = 0):
         for _ in range(self.n_epochs):
             state_arr, action_arr, old_probs_arr, vals_arr, \
-                reward_arr, dones_arr, batches = \
+                reward_arr, hidden_arr, dones_arr, batches = \
                     self.memory.generate_batches()
             values = vals_arr
             advantage = np.zeros(len(reward_arr),dtype = np.float32)
@@ -277,13 +363,19 @@ class Agent:
 	       
             advantage = T.tensor(advantage)
             values = T.tensor(values)
-
+            sum_total_loss = 0
             for batch in batches:
                 states = T.tensor(state_arr[batch]).float()
                 old_probs = T.tensor(old_probs_arr[batch])
                 actions = T.tensor(action_arr[batch])
+                hiddens = hidden_arr[batch]
+                ah = T.tensor(hiddens[:,0,:,:,:]).transpose(0,2).squeeze(0)
+                ch = T.tensor(hiddens[:,1,:,:,:]).transpose(0,2).squeeze(0)
 
-                dist,critic_value = self.net(states)
+
+                dist,_= self.actor(states,ah)
+                critic_value,_ = self.critic(states,ch)
+
                 critic_value = T.squeeze(critic_value)
                 new_probs = dist.log_prob(actions)
                 prob_ratio = new_probs.exp()/old_probs.exp()
@@ -295,7 +387,13 @@ class Agent:
                 critic_loss = critic_loss.mean()
                 total_loss = actor_loss + 0.5*critic_loss + 0.001*entropy
             
-                self.net.optimizer.zero_grad()
-                total_loss.backward()
-                self.net.optimizer.step()
+                self.actor.optimizer.zero_grad()
+                self.critic.optimizer.zero_grad()
+                total_loss.backward(retain_graph=True)
+                sum_total_loss += total_loss.item()
+                self.actor.optimizer.step()
+                self.critic.optimizer.step()
+            # print(sum_total_loss)
+
         self.memory.clear_memory()
+

@@ -3,6 +3,7 @@ import gym
 import numpy as np 
 from ppo_agents import * 
 import matplotlib.pyplot as plt
+import time
 from Env import * 
 from utils import *
 
@@ -52,10 +53,6 @@ def train1(config):
         recorder.plot("PPO/cart.png")
 
 def train(config):
-    """
-        Train()
-        Use to train the network
-    """
     gsize = config.GSIZE
     vsize = config.VSIZE
     nactions = config.NACTIONS
@@ -67,82 +64,85 @@ def train(config):
     HIST_FILENAME = config.HIST_FILENAME
     PLOT_FILENAME = config.PLOT_FILENAME
 
-
     hs = 32
     kr,kc = gsize
     game = PowerGame(kr,kc,vsize)
     game.enable_draw = False
+    entropy_term = 0
     steps = STEPS 
+    batch_size = 50
     episodes = EPISODES 
     recorder = RLGraph()
      
     if type == "Default":
         actor = ActorNet(vsize*vsize,  nactions)
         critic = CriticNet(vsize*vsize, nactions)
+        agent = CAgent(actor,critic,batch_size = batch_size,model_name=model_name)
     
     if type == "Memory":
         actor = ActorGRUNet(vsize*vsize,  nactions)
-        critic = CriticNet(vsize*vsize, nactions)
- 
+        critic = CriticGRUNet(vsize*vsize, nactions)
+        agent = MemoryAgent(actor,critic,batch_size=batch_size,model_name=model_name)
 
-        # net = NormalNet(input_dims = vsize*vsize,n_actions = nactions)
-
-    agent = CAgent(actor,critic,model_name=model_name)
     if load_model :
         agent.load_model()
-    # agent = Agent(net,batch_size=5)
-
-    entropy_term = 0
+    agent.n_epochs = 1
     for i in range(episodes):
-        hard_reset = False 
+        hard_reset = True 
         game.reset(hard_reset) 
-        log_probs = []
-        rewards = []
-        values = []
         state = game.get_state().reshape(-1)
+        if i%5==0:
+            game.enable_draw = True 
+        else:
+            game.enable_draw = False
         if type == "Memory" or type=="Atten":
-            agent.actor.reset()
+            agent.reset()
+
         pbar = tqdm(range(steps),bar_format='{l_bar}{bar:10}{r_bar}{bar:-10b}')
         trewards = 0
         entropy_term = 0
         for j in pbar: 
-            action, prob, value, entropy  = agent.choose_action(state)
+            if type == "Default":
+                action, prob, value, entropy  = agent.choose_action(state)
+            else:
+                action, prob, value, entropy, ah, ch  = agent.choose_action(state)
+
             # print(entropy)
             entropy_term += entropy.item()
             avec = np.zeros((nactions));avec[action] = 1
             new_state,reward = game.act(avec)
-            agent.remember(state,action,prob,value,reward)
-            if j % 50 == 0:
-                agent.learn(entropy_term)
+            if type == "Default":
+                agent.remember(state,action,prob,value,reward)
+            else:
+                agent.remember(state,action,prob,value,reward,[ah,ch])
 
             state = new_state
             trewards += reward
             state = new_state.reshape(-1)
             game.step()
             pbar.set_description(f"Episodes: {i:4} Rewards: {trewards:2}")
-
+        starting = time.time()
+        agent.learn(entropy_term)
+        print("Total time for training: ",(time.time()-starting)/60)
         recorder.newdata(trewards)
         show_once = 1 
         if i% show_once == show_once -1:
             recorder.plot(PLOT_FILENAME)
             recorder.save(HIST_FILENAME)
-        # agent.net.checkpoint_file = "../../models/" + model_name 
         agent.save_model()
-        # torch.save(net.state_dict(),"../../models/" + model_name) 
     recorder.save(HIST_FILENAME)
-
 
 if __name__ == '__main__':
     EPISODES = 5000
     STEPS = 500
 
-    c = Config("GRUAgent-S5")
+    c = Config("GRUAgentlr-S5")
     c.HIDDEN_SIZE =  64 
     c.TYPE = "Memory" 
     c.VSIZE = 5
     c.NACTIONS = 6
     c.NLAYERS = 4
     c.GSIZE= (14,14)
+    c.LOADMODEL = True
 
     train(c)
-
