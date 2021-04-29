@@ -86,7 +86,7 @@ def train(config):
 
     if load_model :
         agent.load_model()
-    agent.n_epochs = 1
+    agent.n_epochs = 5
     for i in range(episodes):
         hard_reset = True 
         game.reset(hard_reset) 
@@ -105,7 +105,7 @@ def train(config):
             if type == "Default":
                 action, prob, value, entropy  = agent.choose_action(state)
             else:
-                action, prob, value, entropy, ah, ch  = agent.choose_action(state)
+                action, prob, value, entropy, ah  = agent.choose_action(state)
 
             # print(entropy)
             entropy_term += entropy.item()
@@ -114,16 +114,17 @@ def train(config):
             if type == "Default":
                 agent.remember(state,action,prob,value,reward)
             else:
-                agent.remember(state,action,prob,value,reward,[ah,ch])
+                agent.remember(state,action,prob,value,reward,ah)
 
+
+            if j%batch_size == batch_size -1:
+                agent.learn(entropy_term)
             state = new_state
             trewards += reward
             state = new_state.reshape(-1)
             game.step()
             pbar.set_description(f"Episodes: {i:4} Rewards: {trewards:2}")
         starting = time.time()
-        agent.learn(entropy_term)
-        print("Total time for training: ",(time.time()-starting)/60)
         recorder.newdata(trewards)
         show_once = 1 
         if i% show_once == show_once -1:
