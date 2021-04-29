@@ -242,14 +242,13 @@ class PPORMemory:
         self.dones.append(done)
 		
     def clear_memory(self ):
-        if len(self.states) > 500:
-            self.states =  []
-            self.probs =   []
-            self.actions = []
-            self.rewards = []
-            self.dones =   []
-            self.hidden_states = []
-            self.vals =    []
+        self.states =  []
+        self.probs =   []
+        self.actions = []
+        self.rewards = []
+        self.dones =   []
+        self.hidden_states = []
+        self.vals =    []
 
 
 class ActorGRUNet(Network):
@@ -269,11 +268,11 @@ class ActorGRUNet(Network):
 
     def forward(self,x,hidden):
         x = x.unsqueeze(0)
-        x,h = self.gru(x,hidden)
-        x = x.squeeze(0)
-        dist = self.actor(x)
+        grout,h = self.gru(x,hidden)
+        grout = grout.squeeze(0)
+        dist = self.actor(grout)
         dist = Categorical(dist)
-        return dist,h
+        return dist,h, grout
 
 class CriticGRUNet(Network):
     def __init__(self,input_dims,n_actions,nlayers=2):
@@ -282,19 +281,15 @@ class CriticGRUNet(Network):
         self.num_actions =n_actions 
         self.layers = nlayers
         self.hidden_size = 128 
-        self.gru = nn.GRU(input_size,self.hidden_size,self.layers)
         # self.hidden = T.zeros(self.layers,1,self.hidden_size)
         self.critic = Sequential(
             nn.Linear(128,1),
         )
         self.optimizer = optim.Adam(self.parameters(),lr = 0.00003)
 
-    def forward(self,x,hidden):
-        x = x.unsqueeze(0)
-        x,h = self.gru(x,hidden)
-        x = x.squeeze(0)
+    def forward(self,x):
         v = self.critic(x)
-        return v,h
+        return v
 
 
 class MemoryAgent:
@@ -308,7 +303,6 @@ class MemoryAgent:
         self.critic = critic
         
         self.actor_hidden = T.zeros(self.actor.layers,1,self.actor.hidden_size)
-        self.critic_hidden = T.zeros(self.critic.layers,1,self.critic.hidden_size)
 
         self.memory = PPORMemory(batch_size)
 
@@ -318,7 +312,6 @@ class MemoryAgent:
     
     def reset(self):
         self.actor_hidden = T.zeros(self.actor.layers,1,self.actor.hidden_size)
-        self.critic_hidden = T.zeros(self.critic.layers,1,self.critic.hidden_size)
 
     
     def remember(self,state,action,probs,vals,reward, hidden,done = 0):
@@ -336,14 +329,14 @@ class MemoryAgent:
 
     def choose_action(self,state):
         state = T.from_numpy(state).float().unsqueeze(0)
-        dist,self.actor_hidden= self.actor(state,self.actor_hidden)
-        value,self.critic_hidden = self.critic(state,self.critic_hidden)
+        dist,self.actor_hidden,grout= self.actor(state,self.actor_hidden)
+        value = self.critic(grout)
         action = dist.sample()
         probs = T.squeeze(dist.log_prob(action)).item()
         action = T.squeeze(action).item()
         value = T.squeeze(value).item()
         entropy = -T.sum(T.mean(dist.probs) * T.log(dist.probs))
-        return action,probs, value, entropy, self.actor_hidden.clone().detach().numpy(),self.critic_hidden.clone().detach().numpy()
+        return action,probs, value, entropy, self.actor_hidden,
     
     def learn(self,entropy = 0):
         for _ in range(self.n_epochs):
@@ -370,11 +363,10 @@ class MemoryAgent:
                 actions = T.tensor(action_arr[batch])
                 hiddens = hidden_arr[batch]
                 ah = T.tensor(hiddens[:,0,:,:,:]).transpose(0,2).squeeze(0)
-                ch = T.tensor(hiddens[:,1,:,:,:]).transpose(0,2).squeeze(0)
 
 
-                dist,_= self.actor(states,ah)
-                critic_value,_ = self.critic(states,ch)
+                dist,_,grout= self.actor(states,ah)
+                critic_value = self.critic(grout)
 
                 critic_value = T.squeeze(critic_value)
                 new_probs = dist.log_prob(actions)
