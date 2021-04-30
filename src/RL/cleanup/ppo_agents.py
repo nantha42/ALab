@@ -130,8 +130,8 @@ class CAgent:
         self.critic = critic
         self.memory = PPOMemory(batch_size)
         if model_name != None:
-            self.actor.checkpoint_file = "../../models/PPO/Actor" + model_name
-            self.critic.checkpoint_file = "../../models/PPO/Critic" + model_name
+            self.actor.checkpoint_file = "../../../models/PPO/Actor" + model_name
+            self.critic.checkpoint_file = "../../../models/PPO/Critic" + model_name
     
     def remember(self,state,action,probs,vals,reward, done = 0):
         self.memory.store_memory(state,action,probs,vals,reward,done)
@@ -307,8 +307,8 @@ class MemoryAgent:
         self.memory = PPORMemory(batch_size)
 
         if model_name != None:
-            self.actor.checkpoint_file = "../../models/PPO/MActor" + model_name
-            self.critic.checkpoint_file = "../../models/PPO/MCritic" + model_name
+            self.actor.checkpoint_file = "../../../models/PPO/MActor" + model_name
+            self.critic.checkpoint_file = "../../../models/PPO/MCritic" + model_name
     
     def reset(self):
         self.actor_hidden = T.zeros(self.actor.layers,1,self.actor.hidden_size)

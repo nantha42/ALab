@@ -5,18 +5,27 @@ np.random.seed(5)
 
 ENABLE_DRAW = True 
 
-class PowerGame:
-    def __init__(self,gr=10,gc=10,vis=7):
+class Agent:
+    def __init__(self):
+        self.x = 0
+        self.y = 0
+        self.rewards = []
+        self.holding = 0
+    
+
+class Ants:
+    def __init__(self,gr=10,gc=10,vis=7,nagents = 10):
         py.init()
         self.font = py.font.SysFont("times",20)
-        self.box_size = 20 
+        self.box_size = 5 
         self.grid = np.zeros((gr,gc))
         self.vissize = vis
         self.w = 50 + gc*self.box_size + 50
         self.h = 50 + gr*self.box_size + 50
         self.win = py.display.set_mode((self.w,self.h),py.DOUBLEBUF,32)
         self.win.set_alpha(128)
-        self.agents = None 
+        self.nagents = nagents
+        self.agents = [Agent() for i in range(self.nagents)] 
         self.test = [0,0]
         self.clock = py.time.Clock()
         self.start_position= [50,50]
@@ -42,7 +51,7 @@ class PowerGame:
         trect.topleft =  pos 
         self.win.blit(text,trect)
 
-   
+    
     def get_state(self) -> np.ndarray :
         x,y = self.agent_pos
         vis = np.ones((self.vissize,self.vissize))*-1
@@ -55,22 +64,22 @@ class PowerGame:
         return self.visibility 
 
 
-    def act(self,action:np.ndarray):
+    def act(self,id,action:np.ndarray):
         left,up,right,down = action[:4]
         v,h = self.grid.shape
         collect = action[4]
         build_proc = action[5]
-        cx,cy = self.agent_pos
         
         reward = 0
-        if left > 0 and self.agent_pos[1]>0:
-            self.agent_pos[1] -=1
-        elif right > 0 and self.agent_pos[1]< h-1:
-            self.agent_pos[1] += 1
-        elif up > 0 and self.agent_pos[0] >0:
-            self.agent_pos[0] -=1 
-        elif down>0 and self.agent_pos[0] < v-1:
-            self.agent_pos[0] +=1
+        if left > 0 and self.agents[id].y >0:
+            self.agents[id].y -=1
+        elif right > 0 and self.agents[id].y< h-1:
+            self.agents[id].y += 1
+        elif up > 0 and self.agents[id].x >0:
+            self.agents[id].x -=1 
+        elif down>0 and self.agents[id].x < v-1:
+            self.agents[id].x +=1
+
         elif collect > 0 and (self.grid[cx][cy] == self.RES or self.grid[cx][cy] == self.ITEM ):
             if self.grid[cx][cy] == self.RES:
                 self.res -= 1
@@ -82,12 +91,12 @@ class PowerGame:
             self.grid[cx][cy] = 0
             reward = 1
 
-        elif build_proc > 0 and self.collected >= 7 and self.grid[cx][cy] == 0:
-            self.grid[cx][cy] = self.PROCESSOR
-            self.processors.append([cx,cy])
-            self.collected  -= 7  # 7 resources = 1 processor
-            self.reward = 2
-        
+        # elif build_proc > 0 and self.collected >= 7 and self.grid[cx][cy] == 0:
+        #     self.grid[cx][cy] = self.PROCESSOR
+        #     self.processors.append([cx,cy])
+        #     self.collected  -= 7  # 7 resources = 1 processor
+        #     self.reward = 2
+        # self.agents[agent_id] = [cx,cy] 
         new_state = self.get_state()
         self.total_rewards += reward
         return new_state,reward
@@ -224,7 +233,7 @@ class PowerGame:
             self.clock.tick(speed)
 
 if __name__ == '__main__':
-    r = PowerGame() 
+    r = Ants() 
     # print(r.get_state())
     while True:
         r.step()
