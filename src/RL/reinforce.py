@@ -28,14 +28,14 @@ class PolicyNetwork(nn.Module):
         x,self.hidden = self.gru(state.unsqueeze(0),self.hidden)
         x = F.relu(self.linear1(x.squeeze(0)))
         x = F.softmax(self.linear2(x), dim=1)
-        return x 
+        return x,self.hidden 
     
     def get_action(self, state):
         state = torch.from_numpy(state).float().unsqueeze(0)
-        probs = self.forward(Variable(state))
+        probs,h = self.forward(Variable(state))
         highest_prob_action = np.random.choice(self.num_actions, p=np.squeeze(probs.detach().numpy()))
         log_prob = torch.log(probs.squeeze(0)[highest_prob_action])
-        return highest_prob_action, log_prob
+        return highest_prob_action, log_prob, h
 
 def update_policy(policy_network, rewards, log_probs):
     discounted_rewards = []
@@ -61,7 +61,7 @@ def update_policy(policy_network, rewards, log_probs):
 
 def main():
     env = gym.make('CartPole-v0')
-    policy_net = PolicyNetwork(env.observation_space.shape[0], env.action_space.n, 128)
+    policy_net = PolicyNetwork(env.observation_space.shape[0], env.action_space.n, 128,3e-3)
     
     max_episode_num = 5000
     max_steps = 1000
@@ -75,15 +75,32 @@ def main():
         rewards = []
         policy_net.reset()
 
+        states = []
+        actions = []
+        hidden_states = []
+
         for steps in range(max_steps):
             env.render()
-            action, log_prob = policy_net.get_action(state)
+            action, log_prob, h = policy_net.get_action(state)
+
+
+            hidden_states.append(h)
+            states.append(state)
+            actions.append(action)
+
             new_state, reward, done, _ = env.step(action)
             log_probs.append(log_prob)
             rewards.append(reward)
 
-            if steps % 20 == 19 or done:
+            # if steps % 20 == 19 or done:
+            if done:
+                for e in range(5):
+                    all_log_probs = []
+                    for s in states:
+                        _,log_prob,h = policy_net.get_action(s)
+                        all_log_probs.append(log_prob)
                 update_policy(policy_net, rewards, log_probs)
+                policy_net.reset()
                 policy_net.zero_grad()
                 if done:
                     numsteps.append(steps)
