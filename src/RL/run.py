@@ -48,7 +48,6 @@ def train(config):
     PLOT_FILENAME = config.PLOT_FILENAME
 
 
-
     hs = 32
     kr,kc = gsize
     game = PowerGame(kr,kc,vsize)
@@ -163,7 +162,7 @@ class Config:
 
 if __name__ == '__main__':
     EPISODES = 5000
-    STEPS = 500
+    STEPS = 50000
 
     c = Config("TMAgent-S5")
     c.HIDDEN_SIZE =  128 
@@ -171,7 +170,7 @@ if __name__ == '__main__':
     c.VSIZE = 5
     c.NACTIONS = 6
     c.NLAYERS = 4
-    c.GSIZE= (14,14)
+    c.GSIZE= (30,10)
     
     # train(c)
     # HIDDEN_SIZE =  64 

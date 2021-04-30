@@ -39,7 +39,6 @@ class PolicyNetwork(nn.Module):
 
 def update_policy(policy_network, rewards, log_probs):
     discounted_rewards = []
-
     for t in range(len(rewards)):
         Gt = 0 
         pw = 0
@@ -65,7 +64,7 @@ def main():
     policy_net = PolicyNetwork(env.observation_space.shape[0], env.action_space.n, 128)
     
     max_episode_num = 5000
-    max_steps = 10000
+    max_steps = 1000
     numsteps = []
     avg_numsteps = []
     all_rewards = []
@@ -83,9 +82,9 @@ def main():
             log_probs.append(log_prob)
             rewards.append(reward)
 
-            # if steps % 20 == 19 or done:
-            if done:
+            if steps % 20 == 19 or done:
                 update_policy(policy_net, rewards, log_probs)
+                policy_net.zero_grad()
                 if done:
                     numsteps.append(steps)
                     avg_numsteps.append(np.mean(numsteps[-10:]))
