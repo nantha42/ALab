@@ -129,8 +129,8 @@ def test(config):
         game.reset(hard_reset) 
         state = game.get_state().reshape(-1)
         rewards = []
-        if type == "Memory" or type == "Atten":
-            net.reset()
+        # if type == "Memory" or type == "Atten":
+            # net.reset()
         pbar = tqdm(range(steps),bar_format='{l_bar}{bar:10}{r_bar}{bar:-10b}')
         trewards = 0
  
@@ -173,7 +173,7 @@ if __name__ == '__main__':
     c.NLAYERS = 4
     c.GSIZE= (14,14)
     
-    train(c)
+    # train(c)
     # HIDDEN_SIZE =  64 
 
     # MODEL_NAME = "PowerMAgent4Layerv2-S5"

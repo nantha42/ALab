@@ -13,14 +13,20 @@ GAMMA = 0.9
 class PolicyNetwork(nn.Module):
     def __init__(self, num_inputs, num_actions, hidden_size, learning_rate=3e-4):
         super(PolicyNetwork, self).__init__()
-
         self.num_actions = num_actions
-        self.linear1 = nn.Linear(num_inputs, hidden_size)
+        self.hidden_size = hidden_size
+        self.gru = nn.GRU(num_inputs,hidden_size,2)
+        self.hidden = torch.zeros((2,1,hidden_size))
+        self.linear1 = nn.Linear(hidden_size, hidden_size)
         self.linear2 = nn.Linear(hidden_size, num_actions)
         self.optimizer = optim.Adam(self.parameters(), lr=learning_rate)
+    
+    def reset(self):
+        self.hidden = torch.zeros((2,1,self.hidden_size))
 
     def forward(self, state):
-        x = F.relu(self.linear1(state))
+        x,self.hidden = self.gru(state.unsqueeze(0),self.hidden)
+        x = F.relu(self.linear1(x.squeeze(0)))
         x = F.softmax(self.linear2(x), dim=1)
         return x 
     
@@ -51,7 +57,7 @@ def update_policy(policy_network, rewards, log_probs):
     
     policy_network.optimizer.zero_grad()
     policy_gradient = torch.stack(policy_gradient).sum()
-    policy_gradient.backward()
+    policy_gradient.backward(retain_graph = True)
     policy_network.optimizer.step()
 
 def main():
@@ -68,6 +74,7 @@ def main():
         state = env.reset()
         log_probs = []
         rewards = []
+        policy_net.reset()
 
         for steps in range(max_steps):
             env.render()
@@ -76,14 +83,24 @@ def main():
             log_probs.append(log_prob)
             rewards.append(reward)
 
+            # if steps % 20 == 19 or done:
             if done:
                 update_policy(policy_net, rewards, log_probs)
-                numsteps.append(steps)
-                avg_numsteps.append(np.mean(numsteps[-10:]))
-                all_rewards.append(np.sum(rewards))
-                if episode % 1 == 0:
-                    sys.stdout.write("episode: {}, total reward: {}, average_reward: {}, length: {}\n".format(episode, np.round(np.sum(rewards), decimals = 3),  np.round(np.mean(all_rewards[-10:]), decimals = 3), steps))
-                break
+                if done:
+                    numsteps.append(steps)
+                    avg_numsteps.append(np.mean(numsteps[-10:]))
+                    all_rewards.append(np.sum(rewards))
+                    if episode % 1 == 0:
+                        sys.stdout.write("episode: {}, total reward: {}, average_reward: {}, length: {}\n".format(episode, np.round(np.sum(rewards), decimals = 3),  np.round(np.mean(all_rewards[-10:]), decimals = 3), steps))
+                    break
+            # if done:
+            #     update_policy(policy_net, rewards, log_probs)
+            #     numsteps.append(steps)
+            #     avg_numsteps.append(np.mean(numsteps[-10:]))
+            #     all_rewards.append(np.sum(rewards))
+            #     if episode % 1 == 0:
+            #         sys.stdout.write("episode: {}, total reward: {}, average_reward: {}, length: {}\n".format(episode, np.round(np.sum(rewards), decimals = 3),  np.round(np.mean(all_rewards[-10:]), decimals = 3), steps))
+            #     break
             
             state = new_state
         
@@ -91,7 +108,7 @@ def main():
         plt.plot(all_rewards)
         plt.xlabel('Episode')
         plt.ylabel('rewards')
-        plt.savefig("../../graphs/reinforce_race.png")
+        plt.savefig("../../graphs/reinforcegru_race.png")
 
 
 if __name__ == '__main__':
