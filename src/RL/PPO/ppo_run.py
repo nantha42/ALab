@@ -111,14 +111,15 @@ def train(config):
             entropy_term += entropy.item()
             avec = np.zeros((nactions));avec[action] = 1
             new_state,reward = game.act(avec)
+            new_state = new_state.reshape(-1)
+
             if type == "Default":
                 agent.remember(state,action,prob,value,reward/100.0)
             else:
-                agent.remember(state,action,prob,value,reward/100.0,ah)
+                agent.remember(state,new_state,action,prob,value,reward/100.0,ah)
 
             state = new_state
             trewards += reward
-            state = new_state.reshape(-1)
             game.step()
             pbar.set_description(f"Episodes: {i:4} Rewards: {trewards:2}")
         
@@ -136,12 +137,12 @@ if __name__ == '__main__':
     EPISODES = 5000
     STEPS = 500
 
-    c = Config("GRUDlrAgent-S5")
+    c = Config("MemAgent-S5")
     c.HIDDEN_SIZE =  64 
-    c.TYPE = "Default" 
+    c.TYPE = "Memory" 
     c.VSIZE = 5
     c.NACTIONS = 6
-    c.NLAYERS = 4
+    c.NLAYERS = 2
     c.GSIZE= (14,14)
     c.LOADMODEL = False 
 

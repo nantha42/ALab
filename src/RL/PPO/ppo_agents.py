@@ -8,9 +8,9 @@ import torch.optim as optim
 from torch.distributions.categorical import Categorical
 import wandb
 
-# wandb.init(project='ppotesting', entity='rnanthak42')
-# config = wandb.config
-# config.learning_rate = 0.00003
+wandb.init(project='ppotesting', entity='rnanthak42')
+config = wandb.config
+config.learning_rate = 0.0003
 
 
 
@@ -202,13 +202,13 @@ class CAgent:
                 critic_loss = critic_loss.mean()
                 total_loss = actor_loss + 0.5*critic_loss + 0.001*entropy
 
-                # wandb.log({"surr1":weighted_probs.mean(),
-                #         "surr2":weighted_clipped_probs.mean(),
-                #         "KL divergence":prob_ratio.mean(),
-                #         "aloss": actor_loss.mean(),
-                #         "closs": critic_loss.mean(),
-                #         "total_loss":total_loss.mean()
-                # })
+                wandb.log({"surr1":weighted_probs.mean(),
+                        "surr2":weighted_clipped_probs.mean(),
+                        "KL divergence":prob_ratio.mean(),
+                        "aloss": actor_loss.mean(),
+                        "closs": critic_loss.mean(),
+                        "total_loss":total_loss.mean()
+                })
  
             
                 self.actor.optimizer.zero_grad()
@@ -224,6 +224,7 @@ class CAgent:
 class PPORMemory:
     def __init__(self,batch_size):
         self.states = []
+        self.states_prime = []
         self.probs = []
         self.vals = []
         self.actions = []
@@ -240,6 +241,7 @@ class PPORMemory:
         batches = [indices[i:i+self.batch_size] for i in batch_start]
 
         return np.array(self.states),\
+                np.array(self.states_prime),\
 				np.array(self.actions),\
 				np.array(self.probs),\
 				np.array(self.vals),\
@@ -248,8 +250,9 @@ class PPORMemory:
 				np.array(self.dones),\
 				batches
 
-    def store_memory(self,state,action,probs,vals,reward,hidden,done):
+    def store_memory(self,state,state_prime,action,probs,vals,reward,hidden,done):
         self.states.append(state)
+        self.states_prime.append(state_prime)
         self.actions.append(action)
         self.probs.append(probs)
         self.vals.append(vals)
@@ -259,6 +262,7 @@ class PPORMemory:
 		
     def clear_memory(self ):
         self.states =  []
+        self.states_prime = []
         self.probs =   []
         self.actions = []
         self.rewards = []
@@ -312,7 +316,7 @@ class MemoryAgent:
     def __init__(self,actor,critic,batch_size=5,model_name = None):
         self.gamma = 0.99
         self.policy_clip = 0.2
-        self.n_epochs = 4 
+        self.n_epochs = 3 
         self.gae_lambda = 0.95 
         
         self.actor= actor 
@@ -329,8 +333,8 @@ class MemoryAgent:
     def reset(self):
         self.actor_hidden = T.zeros(self.actor.layers,1,self.actor.hidden_size)
 
-    def remember(self,state,action,probs,vals,reward, hidden,done = 0):
-        self.memory.store_memory(state,action,probs,vals,reward,hidden,done)
+    def remember(self,state,new_state,action,probs,vals,reward, hidden,done = 0):
+        self.memory.store_memory(state,new_state,action,probs,vals,reward,hidden,done)
     
     def save_model(self):
         # self.net.save_checkpoint()
@@ -365,22 +369,22 @@ class MemoryAgent:
         return dist
 
     def learn(self,entropy =0 ):
-        state_arr, action_arr, old_probs_arr, vals_arr, \
+        state_arr, state_prime_arr,action_arr, old_probs_arr, vals_arr, \
                 reward_arr, hidden_arr, dones_arr, batches = \
                     self.memory.generate_batches()
                 
-        state_arr     =  T.from_numpy(state_arr).float() 
-        action_arr    =  T.from_numpy(action_arr).float() 
-        old_probs_arr =  T.from_numpy(old_probs_arr).float() 
-        vals_arr      =  T.from_numpy(vals_arr).float() 
-        reward_arr    =  T.from_numpy(reward_arr).float().unsqueeze(1)
-        dones_arr     =  T.from_numpy(dones_arr).float().unsqueeze(1)
+        state_arr       =  T.from_numpy(state_arr).float() 
+        state_prime_arr =  T.from_numpy(state_prime_arr).float() 
+        action_arr      =  T.from_numpy(action_arr).float() 
+        old_probs_arr   =  T.from_numpy(old_probs_arr).float() 
+        vals_arr        =  T.from_numpy(vals_arr).float() 
+        reward_arr      =  T.from_numpy(reward_arr).float().unsqueeze(1)
+        dones_arr       =  T.from_numpy(dones_arr).float().unsqueeze(1)
         
         first_hidden = T.zeros(self.actor.layers,1,self.actor.hidden_size)
         second_hidden = hidden_arr[1].detach()
         for _ in range(self.n_epochs) :
-            v_prime = self.get_value(state_arr,second_hidden).squeeze(1)
-
+            v_prime = self.get_value(state_prime_arr,second_hidden).squeeze(1)
             td_target = reward_arr + self.gamma * v_prime*dones_arr
 
             v_s = self.get_value(state_arr,first_hidden).squeeze(1)
@@ -399,7 +403,6 @@ class MemoryAgent:
             
             pi_a = pi.gather(1,action_arr.unsqueeze(0).long())
             ratio = T.exp(T.log(pi_a) - old_probs_arr)
-            # print(ratio.shape)
             surr1 = ratio*advantage
             print(advantage.shape,ratio.shape,ratio.mean(),advantage.mean())
             surr2 = T.clamp(ratio, 1-self.policy_clip, 1+self.policy_clip) * advantage
