@@ -7,11 +7,11 @@ class RLGraph:
         self.hist = []
 
     def save(self,name):
-        f = open("../../history/"+name,"wb")
+        f = open("../../../history/"+name,"wb")
         pickle.dump(self.hist,f)
     
     def load(self,name):
-        f = open("../../history/"+name,"rb")
+        f = open("../../../history/"+name,"rb")
         pickle.load(f,self.hist)
 
     def newdata(self,x):
@@ -24,5 +24,5 @@ class RLGraph:
         plt.plot(smoothed_rewards)
         plt.xlabel('Episodes')
         plt.ylabel('Rewards')
-        plt.savefig("../../graphs/"+name)
+        plt.savefig("../../../graphs/"+name)
         plt.clf()

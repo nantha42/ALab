@@ -162,17 +162,17 @@ class Config:
 
 if __name__ == '__main__':
     EPISODES = 5000
-    STEPS = 50000
+    STEPS = 50
 
-    c = Config("TMAgent-S5")
+    c = Config("TDMAgent-S5")
     c.HIDDEN_SIZE =  128 
-    c.TYPE = "Memory" 
+    c.TYPE = "Default" 
     c.VSIZE = 5
     c.NACTIONS = 6
     c.NLAYERS = 4
-    c.GSIZE= (30,10)
+    c.GSIZE= (5,5)
     
-    # train(c)
+    train(c)
     # HIDDEN_SIZE =  64 
 
     # MODEL_NAME = "PowerMAgent4Layerv2-S5"
