@@ -13,7 +13,7 @@ learning_rate = 0.0005
 gamma         = 0.98
 lmbda         = 0.95
 eps_clip      = 0.1
-K_epoch       = 2
+K_epoch       = 5
 T_horizon     = 20
 
 class PPO(nn.Module):
@@ -70,7 +70,7 @@ class PPO(nn.Module):
         s,a,r,s_prime,done_mask, prob_a, (h1_in, h2_in), (h1_out, h2_out) = self.make_batch()
         first_hidden  = (h1_in.detach(), h2_in.detach())
         second_hidden = (h1_out.detach(), h2_out.detach())
-
+        print("-------")
         for i in range(K_epoch):
             v_prime = self.v(s_prime, second_hidden).squeeze(1)
             td_target = r + gamma * v_prime * done_mask
@@ -92,7 +92,11 @@ class PPO(nn.Module):
 
             surr1 = ratio * advantage
             surr2 = torch.clamp(ratio, 1-eps_clip, 1+eps_clip) * advantage
-            loss = -torch.min(surr1, surr2) + F.smooth_l1_loss(v_s, td_target.detach())
+            aloss = -torch.min(surr1,surr2) 
+            closs = F.smooth_l1_loss(v_s,td_target.detach())
+            loss = aloss + closs
+
+            print("KL divergence",ratio.mean().item(),f"aloss: {aloss.mean()} closs: {closs.mean()}")
 
             self.optimizer.zero_grad()
             loss.mean().backward(retain_graph=True)

@@ -18,7 +18,7 @@ if __name__ == '__main__':
 
 	# agent.load_models()
 	n_games = 300
-	figure_file = '../../graphs/ppo_cartpol.png'
+	figure_file = '../../../graphs/ppo_cartpol.png'
 	best_score = env.reward_range[0]
 	score_history = []
 
@@ -46,7 +46,7 @@ if __name__ == '__main__':
 
 		if avg_score > best_score:
 			best_score = avg_score
-			agent.save_model()
+			# agent.save_model()
 			
 		print(f"episode: {i} score {score:3} avg {avg_score:4} steps {n_steps:4}")
 

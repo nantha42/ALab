@@ -168,6 +168,7 @@ class Agent:
 				critic_value = T.squeeze(critic_value)
 				new_probs = dist.log_prob(actions) # Here a doubt
 				prob_ratio = new_probs.exp() / old_probs.exp()
+				print(f"KL Divergence: {prob_ratio.mean()}")
 				weighted_probs = advantage[batch] * prob_ratio
 				weighted_clipped_probs = T.clamp(prob_ratio, 0.5-self.policy_clip,
 					0.5+ self.policy_clip) *advantage[batch] 
@@ -183,5 +184,4 @@ class Agent:
 				sum_total_loss += total_loss.item()
 				self.actor.optimizer.step()
 				self.critic.optimizer.step()
-			print(sum_total_loss)
 		self.memory.clear_memory()

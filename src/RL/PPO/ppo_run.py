@@ -88,7 +88,7 @@ def train(config):
         agent.load_model()
     agent.n_epochs = 5
     for i in range(episodes):
-        hard_reset = True 
+        hard_reset = False 
         game.reset(hard_reset) 
         state = game.get_state().reshape(-1)
         if i%5==0:
@@ -112,18 +112,17 @@ def train(config):
             avec = np.zeros((nactions));avec[action] = 1
             new_state,reward = game.act(avec)
             if type == "Default":
-                agent.remember(state,action,prob,value,reward)
+                agent.remember(state,action,prob,value,reward/100.0)
             else:
-                agent.remember(state,action,prob,value,reward,ah)
+                agent.remember(state,action,prob,value,reward/100.0,ah)
 
-
-            if j%batch_size == batch_size -1:
-                agent.learn(entropy_term)
             state = new_state
             trewards += reward
             state = new_state.reshape(-1)
             game.step()
             pbar.set_description(f"Episodes: {i:4} Rewards: {trewards:2}")
+        
+        agent.learn(entropy_term)
         starting = time.time()
         recorder.newdata(trewards)
         show_once = 1 
@@ -137,13 +136,13 @@ if __name__ == '__main__':
     EPISODES = 5000
     STEPS = 500
 
-    c = Config("GRUAgentlr-S5")
+    c = Config("GRUDlrAgent-S5")
     c.HIDDEN_SIZE =  64 
-    c.TYPE = "Memory" 
+    c.TYPE = "Default" 
     c.VSIZE = 5
     c.NACTIONS = 6
     c.NLAYERS = 4
     c.GSIZE= (14,14)
-    c.LOADMODEL = True
+    c.LOADMODEL = False 
 
     train(c)
