@@ -142,7 +142,7 @@ def train(config):
     steps = STEPS 
     batch_size = 50
     episodes = EPISODES 
-    # recorder = RLGraph()
+    recorder = RLGraph()
  
     agent = PPO(vsize*vsize,nactions)
     score = 0.0
@@ -177,10 +177,11 @@ def train(config):
                 if done:
                     break
                     
-            
+            recorder.newdata(score)
+            recorder.plot(PLOT_FILENAME)
+            recorder.save(HIST_FILENAME)
             pbar.set_description(f"Episodes: {n_epi:4} Rewards: {score:2}")
             agent.train_net()
-
 
     env.close()
 
@@ -198,12 +199,3 @@ if __name__ == '__main__':
     c.LOADMODEL = False 
 
     train(c)
-
-
-
-# v_prime.shape: torch.Size([50, 1])
-# ic| td_target.shape: torch.Size([50, 1])
-# ic| v_s.shape: torch.Size([50, 1])
-# ic| delta.shape: (50, 1)
-# ic| pi.shape: torch.Size([50, 1, 6])
-# ic| pi_a.shape: torch.Size([50, 1])

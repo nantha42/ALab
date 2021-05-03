@@ -158,6 +158,7 @@ def train(config):
         for _ in pbar:
             for t in range(STEPS//10):
                 h_in = h_out
+                c_time = time.time()
                 prob, h_out = agent.pi(torch.from_numpy(s).float(), h_in)
                 prob = prob.view(-1)
                 m = Categorical(prob)
