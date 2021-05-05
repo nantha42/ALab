@@ -1,5 +1,8 @@
 #PPO-LSTM
+from utils import *
 import gym
+from tqdm import tqdm
+from Env import *
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -8,22 +11,38 @@ from torch.distributions import Categorical
 import time
 import numpy as np
 
+class Config:
+    def __init__(self,model_name):
+        self.MODEL_NAME = model_name + ".pth"
+        self.TYPE = "Default" 
+        self.NACTIONS = 6 
+        self.PLOT_FILENAME = model_name + ".png"
+        self.HIST_FILENAME = model_name + ".pkl" 
+        self.NLAYERS = 4 
+        self.HIDDEN_SIZE = 64 
+        self.VSIZE = 5
+        self.GSIZE = (14,14)
+        self.LOADMODEL = False
+
+
+
 #Hyperparameters
 learning_rate = 0.0005
 gamma         = 0.98
 lmbda         = 0.95
 eps_clip      = 0.1
-K_epoch       = 2
+K_epoch       = 5
 T_horizon     = 20
 
+
 class PPO(nn.Module):
-    def __init__(self):
+    def __init__(self,input_size,output_size):
         super(PPO, self).__init__()
         self.data = []
         
-        self.fc1   = nn.Linear(4,64)
+        self.fc1   = nn.Linear(input_size,64)
         self.lstm  = nn.LSTM(64,32)
-        self.fc_pi = nn.Linear(32,2)
+        self.fc_pi = nn.Linear(32,output_size)
         self.fc_v  = nn.Linear(32,1)
         self.optimizer = optim.Adam(self.parameters(), lr=learning_rate)
 
@@ -70,7 +89,6 @@ class PPO(nn.Module):
         s,a,r,s_prime,done_mask, prob_a, (h1_in, h2_in), (h1_out, h2_out) = self.make_batch()
         first_hidden  = (h1_in.detach(), h2_in.detach())
         second_hidden = (h1_out.detach(), h2_out.detach())
-
         for i in range(K_epoch):
             v_prime = self.v(s_prime, second_hidden).squeeze(1)
             td_target = r + gamma * v_prime * done_mask
@@ -92,46 +110,91 @@ class PPO(nn.Module):
 
             surr1 = ratio * advantage
             surr2 = torch.clamp(ratio, 1-eps_clip, 1+eps_clip) * advantage
-            loss = -torch.min(surr1, surr2) + F.smooth_l1_loss(v_s, td_target.detach())
+            aloss = -torch.min(surr1,surr2) 
+            closs = F.smooth_l1_loss(v_s,td_target.detach())
+            loss = aloss + closs
+
+            # print("KL divergence",ratio.mean().item(),f"aloss: {aloss.mean()} closs: {closs.mean()}")
 
             self.optimizer.zero_grad()
             loss.mean().backward(retain_graph=True)
             self.optimizer.step()
-        
-def main():
-    env = gym.make('CartPole-v1')
-    model = PPO()
+
+
+def train(config):
+    gsize = config.GSIZE
+    vsize = config.VSIZE
+    nactions = config.NACTIONS
+    model_name = config.MODEL_NAME
+    type = config.TYPE 
+    nlayers = config.NLAYERS
+    load_model = config.LOADMODEL
+    HIDDEN_SIZE = config.HIDDEN_SIZE
+    HIST_FILENAME = config.HIST_FILENAME
+    PLOT_FILENAME = config.PLOT_FILENAME
+
+    hs = 32
+    kr,kc = gsize
+    game = PowerGame(kr,kc,vsize)
+    game.enable_draw = False
+    entropy_term = 0
+    steps = STEPS 
+    batch_size = 50
+    episodes = EPISODES 
+    # recorder = RLGraph()
+ 
+    agent = PPO(vsize*vsize,nactions)
     score = 0.0
     print_interval = 20
-    
-    for n_epi in range(10000):
+ 
+    for n_epi in range(episodes):
+        game.reset()
         h_out = (torch.zeros([1, 1, 32], dtype=torch.float), torch.zeros([1, 1, 32], dtype=torch.float))
-        s = env.reset()
+        s = game.get_state().reshape(-1)
         done = False
-        
-        while not done:
-            for t in range(T_horizon):
+        game.enable_draw = True if n_epi%5 == 0 else False
+        score = 0 
+        pbar = tqdm(range(10),bar_format='{l_bar}{bar:10}{r_bar}{bar:-10b}')
+        for _ in pbar:
+            for t in range(STEPS//10):
                 h_in = h_out
-                prob, h_out = model.pi(torch.from_numpy(s).float(), h_in)
+                c_time = time.time()
+                prob, h_out = agent.pi(torch.from_numpy(s).float(), h_in)
                 prob = prob.view(-1)
                 m = Categorical(prob)
                 a = m.sample().item()
-                s_prime, r, done, info = env.step(a)
+                avec = np.zeros((nactions))
+                avec[a] = 1
+                s_prime,r = game.act(avec)
+                s_prime = s_prime.reshape(-1)
+                done = 0
 
-                model.put_data((s, a, r/100.0, s_prime, prob[a].item(), h_in, h_out, done))
+                agent.put_data((s, a, r/100.0, s_prime, prob[a].item(), h_in, h_out, done))
                 s = s_prime
 
                 score += r
+                game.step()
                 if done:
                     break
                     
-            model.train_net()
+            
+            pbar.set_description(f"Episodes: {n_epi:4} Rewards: {score:2}")
+            agent.train_net()
 
-        if n_epi%print_interval==0 and n_epi!=0:
-            print("# of episode :{}, avg score : {:.1f}".format(n_epi, score/print_interval))
-            score = 0.0
 
     env.close()
 
 if __name__ == '__main__':
-    main()
+    EPISODES = 5000
+    STEPS = 500
+
+    c = Config("MemAgent-S5")
+    c.HIDDEN_SIZE =  64 
+    c.TYPE = "Memory" 
+    c.VSIZE = 5
+    c.NACTIONS = 6
+    c.NLAYERS = 2
+    c.GSIZE= (14,14)
+    c.LOADMODEL = False 
+
+    train(c)
