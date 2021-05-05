@@ -95,13 +95,13 @@ class Runner:
 
                 if train:
                     self.trainer.store_records(reward,log_prob)
-                    self.recorder.newdata(trewards)
                 bar.set_description(f"Episode: {_:4} Rewards : {trewards}")
                 self.env.step() 
 
             if train:
                 self.trainer.update()
                 self.trainer.clear_memory()
+                self.recorder.newdata(trewards)
                 if _ % 5 == 4:
                     self.recorder.save()
                     self.recorder.plot()
