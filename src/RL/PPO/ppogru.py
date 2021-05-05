@@ -26,7 +26,6 @@ class Config:
         self.LOADMODEL = False
 
 
-
 #Hyperparameters
 learning_rate = 0.0005
 gamma         = 0.98
