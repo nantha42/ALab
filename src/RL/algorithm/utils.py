@@ -18,7 +18,7 @@ class RLGraph:
         pickle.dump(self.hist,f)
         self.logs[self.run_name] = self.log_message
         with open(self.directory+"log.json","w") as f:
-            json.dump(self.logs, f)
+            json.dump(self.logs, f,indent=2)
     
     def load(self,name):
         f = open(self.directory+"hists/"+self.run_name+".pkl","rb")

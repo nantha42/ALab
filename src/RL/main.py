@@ -56,7 +56,7 @@ env.enable_draw = False
 runner = Runner(
         agent,env,trainer,
         nactions = 6,
-        log_message="Testing environment text rendering"
+        log_message="json dump indentation test"
         )
 
 runner.run(1000,500,train=True,render_once=10)
