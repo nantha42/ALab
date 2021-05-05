@@ -161,8 +161,8 @@ class PowerGame:
         self.draw_items()
         self.render_text(f"Collected :{self.collected:3}",(0,0))
         self.render_text(f"Items     :{self.items:3}",(0,20))
-        self.render_text(f"Steps     :{self.current_step:4}",(250,0))
-        self.render_text(f"Rewards :{self.total_rewards:3}",(250,20))
+        self.render_text(f"Steps     :{self.current_step:4}",(self.w-110,0))
+        self.render_text(f"Rewards :{self.total_rewards:3}",(self.w-110,20))
         # self.agent_pos[1] = ((self.agent_pos[1]+1)%30)
         # if self.agent_pos[1] == 0:
         #     self.agent_pos[0] = ((self.agent_pos[0]+1)%20)

@@ -3,13 +3,14 @@ from torch.distributions.categorical import Categorical
 from tqdm import tqdm
 import numpy as np
 import time
-from .utils import *
+from .utils import RLGraph 
 
 
 class Trainer:
     def __init__(self,model,
                 learning_rate = 0.001):
         self.model = model 
+        self.learning_rate = learning_rate
         self.optimizer = T.optim.Adam(self.model.parameters(),lr=learning_rate) 
         self.rewards = []
         self.log_probs = []
@@ -47,24 +48,41 @@ class Trainer:
 
 
 class Runner:
-    def __init__(self,model,environment,trainer,nactions=6):
+    def __init__(self,model,environment,trainer,nactions=6,log_message=None):
         self.env = environment
         self.model = model
         self.trainer = trainer
         self.nactions = nactions 
+        self.recorder = RLGraph()
+        self.recorder.log_message = log_message
     
-    def run(self,episodes,steps,train=False):
-        
+    
+    def run(self,episodes,steps,train=False,render_once=1e10):
+
+        assert train and self.recorder.log_message is not None, "log_message is necessary during training, Instantiate Runner with log message"
+
+        reset_model = False
+        if hasattr(self.model,"type") and self.model.type == "mem":
+            print("Recurrent Model")
+            reset_model = True
+         
         for _ in range(episodes):
+
             self.env.reset()
-            if hasattr(self.model,"type") and self.model.type == "mem":
+            self.env.enable_draw = True if _ % render_once == render_once-1 else False
+
+            if reset_model:
                 self.model.reset()
+
             state = self.env.get_state().reshape(-1)
             bar = tqdm(range(steps),bar_format='{l_bar}{bar:10}{r_bar}{bar:-10b}')
             trewards = 0
+
             for step in bar:
+                
                 state = T.from_numpy(state).float()
                 actions = self.model(state)
+
                 c = Categorical(actions)
                 action = c.sample()
                 log_prob = c.log_prob(action)
@@ -74,19 +92,18 @@ class Runner:
                 newstate,reward = self.env.act(u)
                 state = newstate.reshape(-1)
                 trewards += reward
+
                 if train:
                     self.trainer.store_records(reward,log_prob)
+                    self.recorder.newdata(trewards)
                 bar.set_description(f"Episode: {_:4} Rewards : {trewards}")
                 self.env.step() 
+
             if train:
                 self.trainer.update()
                 self.trainer.clear_memory()
+                if _ % 5 == 4:
+                    self.recorder.save()
+                    self.recorder.plot()
+
         print("******* Run Complete *******")
-
-
-
-                
-                
-
-            
-        
