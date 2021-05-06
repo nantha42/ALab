@@ -1,5 +1,6 @@
 import matplotlib.pyplot as plt
 import pickle 
+import torch as T
 import pandas as pd
 import time
 import json
@@ -26,6 +27,10 @@ class RLGraph:
 
     def newdata(self,x):
         self.hist.append(x)
+    
+    def save_model(self,model):
+        T.save(model.state_dict(),self.directory+"models/"+self.run_name+".pth")
+        print("****** Model Saved ******")
     
     def plot(self):
         smoothed_rewards = pd.Series.rolling(pd.Series(self.hist), 10).mean()

@@ -37,7 +37,7 @@ class Agent(nn.Module):
     def __init__(self,input_size):
         super().__init__()
         self.layers = nn.Sequential(
-            nn.Linear(input_size,64) ,
+            nn.Linear(input_size,64),
             nn.ReLU(),
             nn.Linear(64,6),
             nn.Softmax(dim=-1)
@@ -48,17 +48,16 @@ class Agent(nn.Module):
         o = self.layers(x)
         return o
 
-env = PowerGame(gr=10,gc=10,vis=5)
+env = PowerGame(gr=20,gc=20,vis=5)
 agent = RAgent(5*5)
+agent.load_state_dict(T.load("logs/models/1620288928.pth"))
 trainer = Trainer(agent,learning_rate=0.001)
 env.enable_draw = False
 
 runner = Runner(
         agent,env,trainer,
         nactions = 6,
-        log_message="json dump indentation test"
+        log_message="Contuining training"
         )
 
-runner.run(1000,500,train=True,render_once=10)
-
-
+runner.run(1000,5000,train=True,render_once=10,saveonce=7)

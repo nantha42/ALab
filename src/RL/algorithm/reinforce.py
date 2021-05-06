@@ -57,9 +57,9 @@ class Runner:
         self.recorder.log_message = log_message
     
     
-    def run(self,episodes,steps,train=False,render_once=1e10):
-
-        assert train and self.recorder.log_message is not None, "log_message is necessary during training, Instantiate Runner with log message"
+    def run(self,episodes,steps,train=False,render_once=1e10,saveonce=10):
+        if train:
+            assert self.recorder.log_message is not None, "log_message is necessary during training, Instantiate Runner with log message"
 
         reset_model = False
         if hasattr(self.model,"type") and self.model.type == "mem":
@@ -69,7 +69,7 @@ class Runner:
         for _ in range(episodes):
 
             self.env.reset()
-            self.env.enable_draw = True if _ % render_once == render_once-1 else False
+            self.env.enable_draw = True if not train or _ % render_once == render_once-1 else False
 
             if reset_model:
                 self.model.reset()
@@ -97,11 +97,12 @@ class Runner:
                     self.trainer.store_records(reward,log_prob)
                 bar.set_description(f"Episode: {_:4} Rewards : {trewards}")
                 self.env.step() 
-
             if train:
                 self.trainer.update()
                 self.trainer.clear_memory()
                 self.recorder.newdata(trewards)
+                if _ % saveonce == saveonce-1:
+                    self.recorder.save_model(self.model)
                 if _ % 5 == 4:
                     self.recorder.save()
                     self.recorder.plot()
