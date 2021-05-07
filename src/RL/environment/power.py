@@ -6,13 +6,18 @@ np.random.seed(5)
 ENABLE_DRAW = True 
 
 class PowerGame:
-    def __init__(self,gr=10,gc=10,vis=7):
+    def __init__(self,gr=10,gc=10,vis=7,neural_image = False):
         py.init()
         self.font = py.font.SysFont("times",20)
         self.box_size = 20 
         self.grid = np.zeros((gr,gc))
         self.vissize = vis
-        self.w = 50 + gc*self.box_size + 50
+        self.display_neural_image = neural_image 
+        extra_width = 500
+        if self.display_neural_image:
+            self.w = 50 + gc*self.box_size + 50 + extra_width  
+        else:
+            self.w = 50 + gc*self.box_size + 50 
         self.h = 50 + gr*self.box_size + 50
         self.win = py.display.set_mode((self.w,self.h),py.DOUBLEBUF,32)
         self.win.set_alpha(128)
@@ -31,6 +36,11 @@ class PowerGame:
         self.processors = []
         self.current_step = 0
         self.total_rewards = 0
+
+        
+        self.neural_image_values = []
+        self.neural_image = None  # stores the surface
+        self.FOV = 90
         #initializing agents
         self.RES = 9
         self.PROCESSOR = 8
@@ -93,6 +103,71 @@ class PowerGame:
         return new_state,reward
         
 
+    def reset(self,hard=False):
+        if hard:
+            np.random.seed(5)
+        v,h = self.grid.shape
+        self.grid = np.zeros((v,h))
+        self.agent_pos = np.array([0,0]) 
+        self.res = 0
+        self.total_rewards =0
+        self.current_step = 0
+        self.items = 0
+        self.collected = 0
+        self.processors = []
+
+        
+    def project_point(self,point) :
+        x,y,z = point
+        inf = 1e9
+        if z > 0:
+            x_ = -np.arctan(np.radians(self.FOV/2))*x/z + 250 
+            y_ = -np.arctan(np.radians(self.FOV/2))*y/z + 250 
+        else:
+            x_ = -inf
+            y_ = -inf
+        return [x_,y_]
+
+
+
+    def draw_neural_image(self):
+        self.neural_image = py.Surface( (500,self.h),py.SRCALPHA).convert_alpha()
+        self.neural_image.fill((0,0,0))
+        draw_dis = 10
+        assert type(self.neural_image_values) == type(np.array([])), "neural_image_values should be in numpy array"
+        if len(self.neural_image_values) < 1:
+            return
+        points = []
+        maxi = np.max(self.neural_image_values)
+        mini = np.min(self.neural_image_values)
+        varr = self.neural_image_values
+        for i in range(varr.shape[0]):
+            for j in range(varr.shape[1]):
+                for k in range(varr.shape[2]):
+                    x_,y_ = self.project_point(np.array([k/10-(varr.shape[2]//2)/10,j/10-(varr.shape[1]//2)/10,0.01+i/10]))
+                    cg = 0
+                    cr = 0
+                    av =varr[i,j,k]
+                    if abs(maxi) > abs(mini):
+                        poslimit = 255 
+                        neglimit = int(255.0*( abs(mini)/ abs(maxi)))
+                    else:
+                        neglimit = 255 
+                        poslimit = int(255.0*( abs(maxi)/ abs(mini)  ))
+                    if av < 0:
+                        cr = int( ((av)/mini)*neglimit)
+                        cg = poslimit- (cr)
+                    else:
+                        cg = int((av/maxi)*poslimit)
+                        cr = neglimit - cg 
+                    colorvalue = (abs(cr),abs(cg),0)
+                    py.draw.circle(self.neural_image,colorvalue,[x_,y_],1,1)
+        self.win.blit(self.neural_image,(self.w-500,50),special_flags = py.BLEND_RGB_ADD)
+
+        
+        
+
+
     def draw_box(self,i,j,color):
         v,h = self.grid.shape
         r = 1
@@ -105,6 +180,7 @@ class PowerGame:
         py.draw.rect(surf,color,surf.get_rect())
         self.win.blit(surf,(sx+j*bs,sy+i*bs,bs,bs),special_flags=py.BLEND_RGBA_ADD)
 #        py.draw.rect(self.win,py.Color(color),(sx+j*bs,sy+i*bs,bs,bs)) 
+
 
     def draw_grid(self):
         #horizontal line
@@ -120,6 +196,7 @@ class PowerGame:
         for i in range(h+1):
             py.draw.line(self.win,color,(sx+i*bs,sy),(sx+i*bs,sy+v*bs))
 
+
     def draw_visibility(self):
         if self.visibility is not None:
             vv,vh = self.visibility.shape
@@ -130,19 +207,7 @@ class PowerGame:
                     if 0<= i+ax-vv//2 < lx and 0<= j+ay-vh//2 < ly: 
                         self.draw_box(i+ax-vv//2,j+ay-vh//2,[50,50,50])
 
-    def reset(self,hard=False):
-        if hard:
-            np.random.seed(5)
-        v,h = self.grid.shape
-        self.grid = np.zeros((v,h))
-        self.agent_pos = np.array([0,0]) 
-        self.res = 0
-        self.total_rewards =0
-        self.current_step = 0
-        self.items = 0
-        self.collected = 0
-        self.processors = []
-
+ 
     def draw_items(self):
         v,h = self.grid.shape
         #v=20 h = 30
@@ -154,7 +219,8 @@ class PowerGame:
                     self.draw_box(i,j,(255,0,0))
                 elif self.grid[i][j] == self.ITEM:
                     self.draw_box(i,j,(0,255,255))
- 
+
+
     def draw(self):
         self.win.fill((0,0,0))
         self.draw_grid()
@@ -171,6 +237,8 @@ class PowerGame:
         self.get_state()
         self.draw_box(self.agent_pos[0],self.agent_pos[1],(0,0,200))
         self.draw_visibility()
+        if self.display_neural_image:
+            self.win.blit(self.neural_image, (self.w-500,0))
         py.display.update()
     
     def spawn_resources(self):
@@ -220,6 +288,8 @@ class PowerGame:
         self.update()
         self.current_step += 1
         if self.enable_draw:
+            if self.display_neural_image:
+                self.draw_neural_image()
             self.draw()
             self.clock.tick(speed)
 

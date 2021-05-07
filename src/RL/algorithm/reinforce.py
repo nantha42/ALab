@@ -48,24 +48,38 @@ class Trainer:
 
 
 class Runner:
-    def __init__(self,model,environment,trainer,nactions=6,log_message=None):
+    def __init__(self,model,environment,trainer,nactions=6,log_message=None,visual_activations = False):
         self.env = environment
         self.model = model
         self.trainer = trainer
         self.nactions = nactions 
         self.recorder = RLGraph()
         self.recorder.log_message = log_message
-    
+        self.activations = []
+        self.visual_activations = visual_activations
+        if visual_activations:
+            def hook_fn(m,i,o):
+                if type(o) == type((1,)):
+                    for u in o:
+                        self.activations.append(u.reshape(-1))
+                else:
+                    self.activations.append(o.reshape(-1))
+
+
+            for n,l in self.model._modules.items():
+                l.register_forward_hook(hook_fn)
+
     
     def run(self,episodes,steps,train=False,render_once=1e10,saveonce=10):
         if train:
             assert self.recorder.log_message is not None, "log_message is necessary during training, Instantiate Runner with log message"
 
+        
         reset_model = False
         if hasattr(self.model,"type") and self.model.type == "mem":
             print("Recurrent Model")
             reset_model = True
-         
+        self.env.display_neural_image = self.visual_activations
         for _ in range(episodes):
 
             self.env.reset()
@@ -95,6 +109,15 @@ class Runner:
 
                 if train:
                     self.trainer.store_records(reward,log_prob)
+                
+                if self.visual_activations:
+                    u = T.cat(self.activations,dim=0)
+                    l = u.shape[0]
+                    lim = int(np.cbrt(l))
+                    u = u[:lim**3].reshape((lim,lim,lim))
+                    self.env.neural_image_values = u.detach().numpy()
+                    self.activations = []
+
                 bar.set_description(f"Episode: {_:4} Rewards : {trewards}")
                 self.env.step() 
             if train:
