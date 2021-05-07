@@ -54,10 +54,22 @@ agent.load_state_dict(T.load("logs/models/1620288928.pth"))
 trainer = Trainer(agent,learning_rate=0.001)
 env.enable_draw = False
 
-runner = Runner(
-        agent,env,trainer,
-        nactions = 6,
-        log_message="Contuining training"
-        )
+visual = {}
 
-runner.run(1000,5000,train=True,render_once=10,saveonce=7)
+def hook_fn(m, i, o):
+  visual[m] = o 
+
+for n,l in agent._modules.items():
+    l.register_forward_hook(hook_fn)
+
+inp = T.randn(25)
+o = agent(inp)
+print(visual)
+
+# runner = Runner(
+#         agent,env,trainer,
+#         nactions = 6,
+#         log_message="Contuining training"
+#         )
+
+# runner.run(1000,5000,train=True,render_once=10,saveonce=7)
