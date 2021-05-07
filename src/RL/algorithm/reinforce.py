@@ -56,7 +56,9 @@ class Runner:
         self.recorder = RLGraph()
         self.recorder.log_message = log_message
         self.activations = []
+        self.weights = []
         self.visual_activations = visual_activations
+        self.current_max_reward = 0
         if visual_activations:
             def hook_fn(m,i,o):
                 if type(o) == type((1,)):
@@ -65,11 +67,15 @@ class Runner:
                 else:
                     self.activations.append(o.reshape(-1))
 
-
             for n,l in self.model._modules.items():
                 l.register_forward_hook(hook_fn)
 
-    
+    def update_weights(self):    
+        self.weights = []
+        for param in self.model.parameters():
+            self.weights.append(T.tensor(param).view(-1).clone().detach())
+        self.weights = T.cat(self.weights).view(-1).numpy()
+ 
     def run(self,episodes,steps,train=False,render_once=1e10,saveonce=10):
         if train:
             assert self.recorder.log_message is not None, "log_message is necessary during training, Instantiate Runner with log message"
@@ -111,23 +117,29 @@ class Runner:
                     self.trainer.store_records(reward,log_prob)
                 
                 if self.visual_activations:
-                    u = T.cat(self.activations,dim=0)
-                    l = u.shape[0]
-                    lim = int(np.cbrt(l))
-                    u = u[:lim**3].reshape((lim,lim,lim))
+                    u = T.cat(self.activations,dim=0).reshape(-1)
                     self.env.neural_image_values = u.detach().numpy()
                     self.activations = []
+                    if _ % 10 == 0 and step/steps == 0:
+                        self.update_weights()
+                        self.env.neural_weights = self.weights
+                        self.env.weight_change = True
 
                 bar.set_description(f"Episode: {_:4} Rewards : {trewards}")
-                self.env.step() 
+                if train:
+                    self.env.step() 
+                else:
+                    self.env.step(speed=0)
+                
             if train:
                 self.trainer.update()
                 self.trainer.clear_memory()
                 self.recorder.newdata(trewards)
                 if _ % saveonce == saveonce-1:
-                    self.recorder.save_model(self.model)
-                if _ % 5 == 4:
                     self.recorder.save()
                     self.recorder.plot()
 
+                if _ % saveonce == saveonce-1 and self.recorder.final_reward >= self.current_max_reward:
+                    self.recorder.save_model(self.model)
+                    self.current_max_reward = self.recorder.final_reward
         print("******* Run Complete *******")

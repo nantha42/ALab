@@ -56,36 +56,11 @@ trainer = Trainer(agent, learning_rate=0.001)
 
 env.enable_draw = False
 
-# visual = []
-
-
-# def hook_fn(m, i, o):
-#     if type(o) == type((1,)):
-#         for u in o:
-#             visual.append(u.reshape(-1))
-#     else:
-#         visual.append(o.reshape(-1))
-
-
-# for n, l in agent._modules.items():
-#     l.register_forward_hook(hook_fn)
-
-# inp = T.randn(25)
-# o = agent(inp)
-# u = T.cat(visual, dim=0)
-# l = u.shape[0]
-# lim = int(np.cbrt(l))
-# u = u[:lim**3].reshape((lim,lim,lim))
-
-# print(u.shape)
-# for fire in visual:
-#     print(fire.reshape(-1))
-
 
 runner = Runner(
         agent,env,trainer,
         nactions = 6,
-        log_message="Testing out visualizing feature",
+        log_message="Continuing Training Model",
         visual_activations=True
         )
 

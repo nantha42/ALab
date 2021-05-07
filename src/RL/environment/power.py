@@ -13,6 +13,9 @@ class PowerGame:
         self.grid = np.zeros((gr,gc))
         self.vissize = vis
         self.display_neural_image = neural_image 
+        self.neural_weights = None
+        self.neural_weight_surface = None
+        self.weight_change = False
         extra_width = 500
         if self.display_neural_image:
             self.w = 50 + gc*self.box_size + 50 + extra_width  
@@ -128,7 +131,20 @@ class PowerGame:
             y_ = -inf
         return [x_,y_]
 
-
+    def calculate_color(self,av,maxi,mini,poslimit,neglimit):
+        cg = 0
+        cr = 0
+  
+        if av < 0:
+            cr = int( ((av)/mini)*neglimit)
+            cg = 0
+            # cg = poslimit- (cr)
+        else:
+            cg = int((av/maxi)*poslimit)
+            # cr = neglimit - cg 
+            cr = 0
+        return cr,cg
+    
 
     def draw_neural_image(self):
         self.neural_image = py.Surface( (500,self.h),py.SRCALPHA).convert_alpha()
@@ -138,34 +154,94 @@ class PowerGame:
         if len(self.neural_image_values) < 1:
             return
         points = []
-        maxi = np.max(self.neural_image_values)
-        mini = np.min(self.neural_image_values)
         varr = self.neural_image_values
-        for i in range(varr.shape[0]):
-            for j in range(varr.shape[1]):
-                for k in range(varr.shape[2]):
-                    x_,y_ = self.project_point(np.array([k/10-(varr.shape[2]//2)/10,j/10-(varr.shape[1]//2)/10,0.01+i/10]))
-                    cg = 0
-                    cr = 0
-                    av =varr[i,j,k]
-                    if abs(maxi) > abs(mini):
-                        poslimit = 255 
-                        neglimit = int(255.0*( abs(mini)/ abs(maxi)))
-                    else:
-                        neglimit = 255 
-                        poslimit = int(255.0*( abs(maxi)/ abs(mini)  ))
-                    if av < 0:
-                        cr = int( ((av)/mini)*neglimit)
-                        cg = poslimit- (cr)
-                    else:
-                        cg = int((av/maxi)*poslimit)
-                        cr = neglimit - cg 
-                    colorvalue = (abs(cr),abs(cg),0)
-                    py.draw.circle(self.neural_image,colorvalue,[x_,y_],1,1)
-        self.win.blit(self.neural_image,(self.w-500,50),special_flags = py.BLEND_RGB_ADD)
+        display_type = "SQUARE"
+        if display_type == "CUBE":
+            varr = self.neural_image_values
+            varr = varr.reshape(-1) 
+            l = int(np.cbrt(varr.shape[0]))
+            varr = varr[:l**3].reshape((l,l,l))
+            maxi = np.max(varr)
+            mini = np.min(varr)
+            if abs(maxi) > abs(mini):
+                poslimit = 255 
+                neglimit = int(255.0*( abs(mini)/ abs(maxi)))
+            else:
+                neglimit = 255 
+                poslimit = int(255.0*( abs(maxi)/ abs(mini)  ))
+ 
+            for i in range(varr.shape[0]):
+                for j in range(varr.shape[1]):
+                    for k in range(varr.shape[2]):
+                        x_,y_ = self.project_point(np.array([k/10-(varr.shape[2]//2)/10,j/10-(varr.shape[1]//2)/10,0.01+i/10]))
+                        av =varr[i,j,k]
+                        cr,cg = self.calculate_color(av,maxi,mini)
+                        colorvalue = (abs(cr),0,abs(cg),)
+                        py.draw.circle(self.neural_image,colorvalue,[x_,y_],1,1)
+        else:
+            varr = varr.reshape(-1)
+            climit = int(np.sqrt(varr.shape[0]))
+            sz = 10
+            startx = 500/2-(climit/2)*sz
+            starty = 500/4-(climit/4)*sz
+            maxi = np.max(varr)
+            mini = np.min(varr)
+            if abs(maxi) > abs(mini):
+                poslimit = 255 
+                neglimit = int(255.0*( abs(mini)/ abs(maxi)))
+            else:
+                neglimit = 255 
+                poslimit = int(255.0*( abs(maxi)/ abs(mini)  ))
+ 
+            i = 0
+            r = 0
+            c = 0
+            while i < varr.shape[0]:
+                av = varr[i]
+                cr,cg = self.calculate_color(av,maxi,mini,poslimit,neglimit)
+                colorvalue = (abs(cr),0,abs(cg))
+                py.draw.rect(self.neural_image,colorvalue,(startx+c*sz,starty+r*sz,sz,sz))
+                c+=1 
+                if c > climit:
+                    c=0
+                    r+=1
+                i+=1
 
-        
-        
+        if self.neural_weights is not None and self.weight_change:
+            self.weight_change = False
+            self.neural_weight_surface = py.Surface((500,250)) 
+            varr = self.neural_weights.reshape(-1)
+            climit = int(np.sqrt(varr.shape[0]))
+            req_size = 250
+            sz = req_size/climit 
+            startx = 500/2-(climit/2)*sz
+            starty = 250/2-(climit/2)*sz
+            maxi = np.max(varr)
+            mini = np.min(varr)
+            
+            if abs(maxi) > abs(mini):
+                poslimit = 255 
+                neglimit = int(255.0*( abs(mini)/ abs(maxi)))
+            else:
+                neglimit = 255 
+                poslimit = int(255.0*( abs(maxi)/ abs(mini)  ))
+ 
+            i = 0
+            r = 0
+            c = 0
+            while i < varr.shape[0]:
+                av = varr[i]
+                cr,cg = self.calculate_color(av,maxi,mini,poslimit,neglimit)
+                colorvalue = (abs(cr),0,abs(cg))
+                py.draw.rect(self.neural_weight_surface,colorvalue,(startx+c*sz,starty+r*sz,sz,sz))
+                c+=1 
+                if c > climit:
+                    c=0
+                    r+=1
+                i+=1
+ 
+        self.neural_image.blit(self.neural_weight_surface,(0,self.h-self.h/2),special_flags = py.BLEND_RGB_ADD)
+        self.win.blit(self.neural_image,(self.w-500,50),special_flags = py.BLEND_RGB_ADD)
 
 
     def draw_box(self,i,j,color):
@@ -227,8 +303,8 @@ class PowerGame:
         self.draw_items()
         self.render_text(f"Collected :{self.collected:3}",(0,0))
         self.render_text(f"Items     :{self.items:3}",(0,20))
-        self.render_text(f"Steps     :{self.current_step:4}",(self.w-110,0))
-        self.render_text(f"Rewards :{self.total_rewards:3}",(self.w-110,20))
+        self.render_text(f"Steps     :{self.current_step:4}",(250,0))
+        self.render_text(f"Rewards :{self.total_rewards:3}",(250,20))
         # self.agent_pos[1] = ((self.agent_pos[1]+1)%30)
         # if self.agent_pos[1] == 0:
         #     self.agent_pos[0] = ((self.agent_pos[0]+1)%20)

@@ -11,6 +11,7 @@ class RLGraph:
         self.directory = "logs/"
         self.run_name = str(int(time.time()))
         self.log_message = None
+        self.final_reward = 0
         with open(self.directory+"log.json","r")  as f:
             self.logs = json.load(f) 
 
@@ -35,6 +36,7 @@ class RLGraph:
     def plot(self):
         smoothed_rewards = pd.Series.rolling(pd.Series(self.hist), 10).mean()
         smoothed_rewards = [elem for elem in smoothed_rewards]
+        self.final_reward = smoothed_rewards[-1]
         plt.plot(self.hist)
         plt.plot(smoothed_rewards)
         plt.xlabel('Episodes')
