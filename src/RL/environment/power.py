@@ -1,7 +1,9 @@
 import pygame as py 
 import typing
 import numpy as np 
+from icecream import ic
 np.random.seed(5)
+
 
 ENABLE_DRAW = True 
 
@@ -43,6 +45,8 @@ class PowerGame:
         
         self.neural_image_values = []
         self.neural_image = None  # stores the surface
+        self.neural_layout = None
+        self.neural_layout_size = None
         self.FOV = 90
         #initializing agents
         self.RES = 9
@@ -131,6 +135,51 @@ class PowerGame:
             y_ = -inf
         return [x_,y_]
 
+    def create_pack(self,arr):
+        l = arr.shape[0]
+        s = int(np.sqrt(l))
+        arr = arr[:int(s*s)].reshape((s,s))
+        col_splits = np.random.randint(3,6)
+        columns = []
+        a_split = s/col_splits
+        total = s
+        starting = 0
+        for i in range(col_splits-1):
+            end = np.random.randint(a_split-20,a_split)
+            columns.append([starting,starting+end])
+            starting+= end 
+        columns.append([starting,s])
+
+        final_split = []
+        row_splits = 5 
+        for column in columns:
+            starting = 0
+            a_split = s/row_splits
+            rows = []
+            for i in range(row_splits-1):
+                e = np.random.randint(a_split-30,a_split+10)
+                rows.append([starting,starting+e,column[0],column[1]])
+                starting += e
+            rows.append([starting,s,column[0],column[1]])
+            final_split.append(rows)
+        surface_size = [[s,s],[row_splits,col_splits]]
+        return final_split,surface_size
+    
+
+    def weight_from_pack(self):
+        arr = self.neural_weights
+        l = arr.shape[0]
+        s = int(np.sqrt(l))
+        arr = arr[:(s*s)].reshape((s,s))
+ 
+        out = []
+        for col in self.neural_layout:
+            rows = []
+            for r in col:
+                rows.append(arr[r[0]:r[1],r[2]:r[3]])
+            out.append(rows)
+        return out 
+                
     def calculate_color(self,av,maxi,mini,poslimit,neglimit):
         cg = 0
         cr = 0
@@ -163,12 +212,14 @@ class PowerGame:
             varr = varr[:l**3].reshape((l,l,l))
             maxi = np.max(varr)
             mini = np.min(varr)
+            rmax = 180
+            gmax = 245
             if abs(maxi) > abs(mini):
-                poslimit = 255 
-                neglimit = int(255.0*( abs(mini)/ abs(maxi)))
+                poslimit = 0 
+                neglimit = int(rmax*( abs(mini)/ abs(maxi)))
             else:
-                neglimit = 255 
-                poslimit = int(255.0*( abs(maxi)/ abs(mini)  ))
+                neglimit = rmax 
+                poslimit = int(gmax*( abs(maxi)/ abs(mini)  ))
  
             for i in range(varr.shape[0]):
                 for j in range(varr.shape[1]):
@@ -186,12 +237,21 @@ class PowerGame:
             starty = 500/4-(climit/4)*sz
             maxi = np.max(varr)
             mini = np.min(varr)
+            rmax = 180
+            gmax = 245
             if abs(maxi) > abs(mini):
-                poslimit = 255 
-                neglimit = int(255.0*( abs(mini)/ abs(maxi)))
+                poslimit = 0 
+                neglimit = int(rmax*( abs(mini)/ abs(maxi)))
             else:
-                neglimit = 255 
-                poslimit = int(255.0*( abs(maxi)/ abs(mini)  ))
+                neglimit = rmax 
+                poslimit = int(gmax*( abs(maxi)/ abs(mini)  ))
+ 
+            # if abs(maxi) > abs(mini):
+            #     poslimit = 180 
+            #     neglimit = int(255.0*( abs(mini)/ abs(maxi)))
+            # else:
+            #     neglimit = 255 
+            #     poslimit = int(255.0*( abs(maxi)/ abs(mini)  ))
  
             i = 0
             r = 0
@@ -199,7 +259,7 @@ class PowerGame:
             while i < varr.shape[0]:
                 av = varr[i]
                 cr,cg = self.calculate_color(av,maxi,mini,poslimit,neglimit)
-                colorvalue = (abs(cr),0,abs(cg))
+                colorvalue = (abs(cr),abs(cg),max(abs(cr),abs(cg)))
                 py.draw.rect(self.neural_image,colorvalue,(startx+c*sz,starty+r*sz,sz,sz))
                 c+=1 
                 if c > climit:
@@ -209,38 +269,115 @@ class PowerGame:
 
         if self.neural_weights is not None and self.weight_change:
             self.weight_change = False
-            self.neural_weight_surface = py.Surface((500,250)) 
-            varr = self.neural_weights.reshape(-1)
-            climit = int(np.sqrt(varr.shape[0]))
-            req_size = 250
-            sz = req_size/climit 
-            startx = 500/2-(climit/2)*sz
-            starty = 250/2-(climit/2)*sz
-            maxi = np.max(varr)
-            mini = np.min(varr)
+            if self.neural_layout == None:
+                self.neural_layout,self.neural_layout_size = self.create_pack(self.neural_weights)
+
             
-            if abs(maxi) > abs(mini):
-                poslimit = 255 
-                neglimit = int(255.0*( abs(mini)/ abs(maxi)))
-            else:
-                neglimit = 255 
-                poslimit = int(255.0*( abs(maxi)/ abs(mini)  ))
+            pix_size , gaps = self.neural_layout_size 
+            gap_size = 1
+            pix_size[0] += gaps[0] * gap_size
+            pix_size[1] += gaps[1] * gap_size
+
+            self.neural_weight_surface = py.Surface(pix_size)
+            self.neural_weight_surface.fill((250,0,0))
+
+            weights = self.weight_from_pack()
+            startx = 0
+            for col in weights:
+                starty = 0
+                for weight in col:
+                    r,c = weight.shape
+                    print(weight.shape)
+                    maxi = np.max(weight)
+                    mini = np.min(weight)
+                    sz = 1
+
+                    if abs(maxi) > abs(mini):
+                       poslimit = 180 
+                       neglimit = int(255.0*( abs(mini)/ abs(maxi)))
+                    else:
+                        neglimit = 255 
+                        poslimit = int(255.0*( abs(maxi)/ abs(mini)  ))
+                    
+                    for i in range(r):
+                        for j in range(c):
+                            av = weight[i][j]
+                            cr,cg = self.calculate_color(av,maxi,mini,poslimit,neglimit)
+                            colorvalue = (abs(cr),abs(cg),max(abs(cr),abs(cg)))
+                            py.draw.rect(self.neural_weight_surface,colorvalue,(startx+j*sz,starty+i*sz,sz,sz))
+                    starty += r*sz + gap_size 
+                startx += c*sz + gap_size 
  
-            i = 0
-            r = 0
-            c = 0
-            while i < varr.shape[0]:
-                av = varr[i]
-                cr,cg = self.calculate_color(av,maxi,mini,poslimit,neglimit)
-                colorvalue = (abs(cr),0,abs(cg))
-                py.draw.rect(self.neural_weight_surface,colorvalue,(startx+c*sz,starty+r*sz,sz,sz))
-                c+=1 
-                if c > climit:
-                    c=0
-                    r+=1
-                i+=1
+
+            # first = True
+            # for arr in self.neural_weights:
+            #     if len(arr.shape) < 2:
+            #         continue
+            #     print(arr.shape,startx,starty)
+            #     r,c = arr.shape
+            #     maxi = np.max(arr)
+            #     mini = np.min(arr)
+            #     req_size = 80 
+            #     sz = min(req_size/c,1)
+            #     # startx = 500/2-(c/2)*sz
+            #     # starty = 250/2-(c/2)*sz
  
-        self.neural_image.blit(self.neural_weight_surface,(0,self.h-self.h/2),special_flags = py.BLEND_RGB_ADD)
+            #     if abs(maxi) > abs(mini):
+            #        poslimit = 180 
+            #        neglimit = int(255.0*( abs(mini)/ abs(maxi)))
+            #     else:
+            #         neglimit = 255 
+            #         poslimit = int(255.0*( abs(maxi)/ abs(mini)  ))
+            #     print("drawing",r,c)
+            #     for i in range(r):
+            #         for j in range(c):
+            #             av = arr[i][j]
+            #             cr,cg = self.calculate_color(av,maxi,mini,poslimit,neglimit)
+            #             # colorvalue = (abs(cr),0,abs(cg))
+            #             colorvalue = (abs(cr),abs(cg),max(abs(cr),abs(cg)))
+            #                 # exit()
+            #             py.draw.rect(self.neural_weight_surface,colorvalue,(startx+j*sz,starty+i*sz,sz,sz))
+            #             # py.draw.circle(self.neural_weight_surface,(255,255,255),(startx+j*sz,starty+i*sz),int(sz),int(sz))
+
+            #     if first:
+            #         first = False
+            #     if startx + c*sz >= 500:
+            #         startx = 10
+            #         starty += r*sz+10
+            #     else:
+            #         startx += c*sz + 10
+                
+            # climit = int(np.sqrt(varr.shape[0]))
+            # req_size = 250
+            # sz = req_size/climit 
+            # startx = 500/2-(climit/2)*sz
+            # starty = 250/2-(climit/2)*sz
+            # maxi = np.max(varr)
+            # mini = np.min(varr)
+            
+            # if abs(maxi) > abs(mini):
+            #     poslimit = 255 
+            #     neglimit = int(255.0*( abs(mini)/ abs(maxi)))
+            # else:
+            #     neglimit = 255 
+            #     poslimit = int(255.0*( abs(maxi)/ abs(mini)  ))
+ 
+            # i = 0
+            # r = 0
+            # c = 0
+            # while i < varr.shape[0]:
+            #     av = varr[i]
+            #     cr,cg = self.calculate_color(av,maxi,mini,poslimit,neglimit)
+            #     colorvalue = (abs(cr),0,abs(cg))
+            #     py.draw.rect(self.neural_weight_surface,colorvalue,(startx+c*sz,starty+r*sz,sz,sz))
+            #     c+=1 
+            #     if c > climit:
+            #         c=0
+            #         r+=1
+            #     i+=1
+ 
+        self.neural_image.blit(self.neural_weight_surface,
+                                (self.neural_image.get_width()/2-self.neural_weight_surface.get_width()/2,self.h-self.h/2),special_flags = py.BLEND_RGB_ADD)
         self.win.blit(self.neural_image,(self.w-500,50),special_flags = py.BLEND_RGB_ADD)
 
 

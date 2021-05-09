@@ -73,8 +73,9 @@ class Runner:
     def update_weights(self):    
         self.weights = []
         for param in self.model.parameters():
-            self.weights.append(T.tensor(param).view(-1).clone().detach())
-        self.weights = T.cat(self.weights).view(-1).numpy()
+            self.weights.append(T.tensor(param).clone().detach().reshape(-1))
+        self.weights = T.cat(self.weights,dim=0).numpy()
+        print("weights shape",self.weights.shape)
  
     def run(self,episodes,steps,train=False,render_once=1e10,saveonce=10):
         if train:
