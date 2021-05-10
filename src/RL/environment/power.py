@@ -14,10 +14,6 @@ class PowerGame:
         self.box_size = 20 
         self.grid = np.zeros((gr,gc))
         self.vissize = vis
-        self.display_neural_image = neural_image 
-        self.neural_weights = None
-        self.neural_weight_surface = None
-        self.weight_change = False
         extra_width = 500
         if self.display_neural_image:
             self.w = 50 + gc*self.box_size + 50 + extra_width  
@@ -48,6 +44,13 @@ class PowerGame:
         self.neural_image = None  # stores the surface
         self.neural_layout = None
         self.neural_layout_size = None
+
+
+        self.display_neural_image = neural_image 
+        self.neural_weights = None
+        self.neural_weight_surface = None
+        self.weight_change = False
+ 
         self.FOV = 90
 
         #initializing agents
