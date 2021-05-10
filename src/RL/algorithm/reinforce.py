@@ -146,3 +146,11 @@ class Runner:
                     self.recorder.save_model(self.model)
                     self.current_max_reward = self.recorder.final_reward
         print("******* Run Complete *******")
+
+
+
+class Simulator(Runner):
+    def __init__(self,model,environment,trainer,nactions=6,log_message=None,visual_activations = False):
+        super().__init__(model,environment,trainer,nactions=6,log_message=log_message,visual_activations = visual_activations)
+
+
