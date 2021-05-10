@@ -41,13 +41,15 @@ class PowerGame:
         self.processors = []
         self.current_step = 0
         self.total_rewards = 0
-
         
+        self.hidden_state = None
+        self.hidden_state_surfaces = []
         self.neural_image_values = []
         self.neural_image = None  # stores the surface
         self.neural_layout = None
         self.neural_layout_size = None
         self.FOV = 90
+
         #initializing agents
         self.RES = 9
         self.PROCESSOR = 8
@@ -165,7 +167,6 @@ class PowerGame:
         surface_size = [[s,s],[row_splits,col_splits]]
         return final_split,surface_size
     
-
     def weight_from_pack(self):
         arr = self.neural_weights
         l = arr.shape[0]
@@ -245,14 +246,7 @@ class PowerGame:
             else:
                 neglimit = rmax 
                 poslimit = int(gmax*( abs(maxi)/ abs(mini)  ))
- 
-            # if abs(maxi) > abs(mini):
-            #     poslimit = 180 
-            #     neglimit = int(255.0*( abs(mini)/ abs(maxi)))
-            # else:
-            #     neglimit = 255 
-            #     poslimit = int(255.0*( abs(maxi)/ abs(mini)  ))
- 
+
             i = 0
             r = 0
             c = 0
@@ -279,7 +273,7 @@ class PowerGame:
             pix_size[1] += gaps[1] * gap_size
 
             self.neural_weight_surface = py.Surface(pix_size)
-            self.neural_weight_surface.fill((250,0,0))
+            # self.neural_weight_surface.fill((250,0,0))
 
             weights = self.weight_from_pack()
             startx = 0
@@ -287,10 +281,9 @@ class PowerGame:
                 starty = 0
                 for weight in col:
                     r,c = weight.shape
-                    print(weight.shape)
                     maxi = np.max(weight)
                     mini = np.min(weight)
-                    sz = 1
+                    sz = 1.3
 
                     if abs(maxi) > abs(mini):
                        poslimit = 180 
@@ -307,75 +300,36 @@ class PowerGame:
                             py.draw.rect(self.neural_weight_surface,colorvalue,(startx+j*sz,starty+i*sz,sz,sz))
                     starty += r*sz + gap_size 
                 startx += c*sz + gap_size 
- 
+        if type(self.hidden_state) != type(None):
+            maxi = np.max(self.hidden_state)
+            mini = np.min(self.hidden_state)
+            r,c = self.hidden_state.shape
+            sz = 2 
+            state_surface= py.Surface((c*sz,r*sz))
+            print(state_surface.get_width(),state_surface.get_height())
+            if abs(maxi) > abs(mini):
+               poslimit = 180 
+               neglimit = int(255.0*( abs(mini)/ abs(maxi)))
+            else:
+                neglimit = 255 
+                poslimit = int(255.0*( abs(maxi)/ abs(mini)  ))
 
-            # first = True
-            # for arr in self.neural_weights:
-            #     if len(arr.shape) < 2:
-            #         continue
-            #     print(arr.shape,startx,starty)
-            #     r,c = arr.shape
-            #     maxi = np.max(arr)
-            #     mini = np.min(arr)
-            #     req_size = 80 
-            #     sz = min(req_size/c,1)
-            #     # startx = 500/2-(c/2)*sz
-            #     # starty = 250/2-(c/2)*sz
- 
-            #     if abs(maxi) > abs(mini):
-            #        poslimit = 180 
-            #        neglimit = int(255.0*( abs(mini)/ abs(maxi)))
-            #     else:
-            #         neglimit = 255 
-            #         poslimit = int(255.0*( abs(maxi)/ abs(mini)  ))
-            #     print("drawing",r,c)
-            #     for i in range(r):
-            #         for j in range(c):
-            #             av = arr[i][j]
-            #             cr,cg = self.calculate_color(av,maxi,mini,poslimit,neglimit)
-            #             # colorvalue = (abs(cr),0,abs(cg))
-            #             colorvalue = (abs(cr),abs(cg),max(abs(cr),abs(cg)))
-            #                 # exit()
-            #             py.draw.rect(self.neural_weight_surface,colorvalue,(startx+j*sz,starty+i*sz,sz,sz))
-            #             # py.draw.circle(self.neural_weight_surface,(255,255,255),(startx+j*sz,starty+i*sz),int(sz),int(sz))
+            for i in range(r):
+                for j in range(c):
+                    av = self.hidden_state[i][j]
+                    cr,cg = self.calculate_color(av,maxi,mini,poslimit,neglimit)
+                    colorvalue = (abs(cr),abs(cg),max(abs(cr),abs(cg)))
+                    py.draw.rect(state_surface,colorvalue,(j*sz,i*sz,sz,sz))
 
-            #     if first:
-            #         first = False
-            #     if startx + c*sz >= 500:
-            #         startx = 10
-            #         starty += r*sz+10
-            #     else:
-            #         startx += c*sz + 10
-                
-            # climit = int(np.sqrt(varr.shape[0]))
-            # req_size = 250
-            # sz = req_size/climit 
-            # startx = 500/2-(climit/2)*sz
-            # starty = 250/2-(climit/2)*sz
-            # maxi = np.max(varr)
-            # mini = np.min(varr)
-            
-            # if abs(maxi) > abs(mini):
-            #     poslimit = 255 
-            #     neglimit = int(255.0*( abs(mini)/ abs(maxi)))
-            # else:
-            #     neglimit = 255 
-            #     poslimit = int(255.0*( abs(maxi)/ abs(mini)  ))
- 
-            # i = 0
-            # r = 0
-            # c = 0
-            # while i < varr.shape[0]:
-            #     av = varr[i]
-            #     cr,cg = self.calculate_color(av,maxi,mini,poslimit,neglimit)
-            #     colorvalue = (abs(cr),0,abs(cg))
-            #     py.draw.rect(self.neural_weight_surface,colorvalue,(startx+c*sz,starty+r*sz,sz,sz))
-            #     c+=1 
-            #     if c > climit:
-            #         c=0
-            #         r+=1
-            #     i+=1
- 
+
+            self.hidden_state_surfaces.append(state_surface)
+            if len(self.hidden_state_surfaces) > 500:
+                self.hidden_state_surfaces = self.hidden_state_surfaces[1:]
+
+            for i in range(len(self.hidden_state_surfaces)):
+                self.neural_image.blit(self.hidden_state_surfaces[i],
+                                        (0,500*sz - i*r*sz+50))
+
         self.neural_image.blit(self.neural_weight_surface,
                                 (self.neural_image.get_width()/2-self.neural_weight_surface.get_width()/2,self.h-self.h/2),special_flags = py.BLEND_RGB_ADD)
         self.win.blit(self.neural_image,(self.w-500,50),special_flags = py.BLEND_RGB_ADD)

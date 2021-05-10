@@ -21,6 +21,7 @@ class RAgent(nn.Module):
             nn.Softmax(dim=-1)
         )
         self.type = "mem"
+        self.hidden_vectors = None 
 
     def reset(self):
         self.hidden = T.zeros((1, 1, 64))
@@ -29,6 +30,7 @@ class RAgent(nn.Module):
         x = x.reshape(1, -1, self.input_size)
         x = self.pre(x)
         x, self.hidden = self.gru(x, self.hidden)
+        self.hidden_vectors = self.hidden.detach().clone().squeeze(0).numpy()
         o = self.layers(x)
         return o
 

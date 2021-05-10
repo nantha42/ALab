@@ -125,6 +125,8 @@ class Runner:
                         self.update_weights()
                         self.env.neural_weights = self.weights
                         self.env.weight_change = True
+                    if type(self.model.hidden_vectors) != type(None):
+                        self.env.hidden_state = self.model.hidden_vectors
 
                 bar.set_description(f"Episode: {_:4} Rewards : {trewards}")
                 if train:
