@@ -248,6 +248,98 @@ class Simulator(Runner):
             poslimit = int(255.0*( abs(maxi)/ abs(mini)  ))
         return poslimit,neglimit 
 
+    def surf_neural_activation(self):
+        """ Returns a Drawn surface for neural activation"""
+
+        assert type(self.neural_image_values) == type(np.array([])), "neural_image_values should be in numpy array"
+
+        points = []
+        varr = self.neural_image_values
+ 
+        varr = varr.reshape(-1)
+        l = int(np.sqrt(varr.shape[0]))
+        varr = varr[-l*l:].reshape((l,l))
+        
+        sz = 10
+        activ_surf = py.Surface((l*sz+20,l*sz+20))
+        maxi = np.max(varr)
+        mini = np.min(varr)
+        
+        poslimit,neglimit = self.calculate_limits(maxi,mini)
+        for r in range(l):
+            for c in range(l):
+                av = varr[r][c]
+                cr,cg = self.calculate_color(av,maxi,mini,poslimit,neglimit)
+                colorvalue = (abs(cr),abs(cg),max(abs(cr),abs(cg)))
+                py.draw.rect(activ_surf,colorvalue,(10+c*sz,10+r*sz,sz,sz))
+        return activ_surf
+    
+    def surf_hidden_activation(self):
+        if type(self.hidden_state) != type(None):
+            maxi = np.max(self.hidden_state)
+            mini = np.min(self.hidden_state)
+            r,c = self.hidden_state.shape
+            sz = 2 
+            state_surface= py.Surface((c*sz,r*sz))
+            print(state_surface.get_width(),state_surface.get_height())
+            poslimit,neglimit = self.calculate_limits(maxi,mini)
+            for i in range(r):
+                for j in range(c):
+                    av = self.hidden_state[i][j]
+                    cr,cg = self.calculate_color(av,maxi,mini,poslimit,neglimit)
+                    colorvalue = (abs(cr),abs(cg),max(abs(cr),abs(cg)))
+                    py.draw.rect(state_surface,colorvalue,(j*sz,i*sz,sz,sz))
+
+
+            self.hidden_state_surfaces.append(state_surface)
+            if len(self.hidden_state_surfaces) > 500:
+                self.hidden_state_surfaces = self.hidden_state_surfaces[1:]
+
+            l = len(self.hidden_state_surfaces)
+            surf_w = self.hidden_state_surfaces[0].get_width()
+            surf_h = self.hidden_state_surfaces[0].get_height()
+            full_surf = py.Surface((20+l*surf_w,20+surf_h))
+            for i in range(l):
+                full_surf.blit( self.hidden_state_surfaces[i], (10+i*surf_w,10))
+            return full_surf
+                
+    def surf_neural_weights(self):
+        if self.neural_weights is not None and self.weight_change:
+            self.weight_change = False
+            if self.neural_layout == None:
+                self.neural_layout,self.neural_layout_size = self.create_pack(self.neural_weights)
+            
+            pix_size , gaps = self.neural_layout_size 
+            gap_size = 1
+            sz = 1
+            px = pix_size[0]*sz + gaps[0]*gap_size + 20
+            py = pix_size[1]*sz + gaps[1]*gap_size + 20
+
+            neural_weight_surface = py.Surface((px,py))
+
+            weights = self.weight_from_pack()
+            startx = 10
+            for col in weights:
+                starty = 10
+                for weight in col:
+                    r,c = weight.shape
+                    maxi = np.max(weight)
+                    mini = np.min(weight)
+                    self.calculate_limits(maxi,mini)
+                    for i in range(r):
+                        for j in range(c):
+                            av = weight[i][j]
+                            cr,cg = self.calculate_color(av,maxi,mini,poslimit,neglimit)
+                            colorvalue = (abs(cr),abs(cg),max(abs(cr),abs(cg)))
+                            py.draw.rect(neural_weight_surface,colorvalue,(startx+j*sz,starty+i*sz,sz,sz))
+                    starty += r*sz + gap_size 
+                startx += c*sz + gap_size 
+            return neural_weight_surface
+ 
+    def draw_neural_image(self):        
+
+
+
     def draw_neural_image(self):
         self.neural_image = py.Surface( (500,self.h),py.SRCALPHA).convert_alpha()
         self.neural_image.fill((0,0,0))
@@ -340,6 +432,7 @@ class Simulator(Runner):
             maxi = np.max(self.hidden_state)
             mini = np.min(self.hidden_state)
             r,c = self.hidden_state.shape
+            print(r,c)
             sz = 2 
             state_surface= py.Surface((c*sz,r*sz))
             print(state_surface.get_width(),state_surface.get_height())
