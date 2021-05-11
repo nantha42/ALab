@@ -16,7 +16,6 @@ class PowerGame:
         self.w = 50 + gc*self.box_size + 50
         self.h = 50 + gr*self.box_size + 50
         self.win =  py.Surface((self.w,self.h),py.DOUBLEBUF,32)
-        self.win.set_alpha(128)
         self.agents = None 
         self.test = [0,0]
         self.start_position= [50,50]
