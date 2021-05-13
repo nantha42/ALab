@@ -84,8 +84,8 @@ if __name__ == '__main__':
     s = Simulator(
         agent,env,trainer,
         nactions=6,
-        log_message="Continuing Training model",
-        visual_activations=True
+        log_message="Now Real Running ",
+        visual_activations= False
     )
     print(s.visual_activations)
-    s.run(1000,5000,train=False,render_once=10,saveonce=7)
+    s.run(1000,5000,train=True,render_once=10,saveonce=7)
