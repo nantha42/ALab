@@ -69,7 +69,7 @@ if __name__ == '__main__':
     windwo = py.display.set_mode((100,100))
     env = PowerGame(gr=20, gc=20, vis=5)
     agent = RAgent(5*5)
-    agent.load_state_dict(T.load("logs/models/1620290798.pth"))
+    agent.load_state_dict(T.load("logs/models/1620908857.pth"))
     trainer = Trainer(agent, learning_rate=0.001)
     env.enable_draw = False
     # runner = Runner(
@@ -84,8 +84,8 @@ if __name__ == '__main__':
     s = Simulator(
         agent,env,trainer,
         nactions=6,
-        log_message="Now Real Running ",
-        visual_activations= False
+        log_message="Testing this high performance model",
+        visual_activations= True 
     )
     print(s.visual_activations)
-    s.run(1000,5000,train=True,render_once=10,saveonce=7)
+    s.run(1000,5000,train=False,render_once=10,saveonce=7)

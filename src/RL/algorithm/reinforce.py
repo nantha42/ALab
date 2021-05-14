@@ -163,6 +163,7 @@ class Simulator(Runner):
             self.w = 50 + env_w 
         self.h = 50 + env_h 
  
+        self.font = py.font.SysFont("times",10)
         self.window = py.display.set_mode((self.w,self.h),py.DOUBLEBUF,32)
         self.window.set_alpha(128)
         self.clock = py.time.Clock()
@@ -180,6 +181,14 @@ class Simulator(Runner):
         self.neural_weights = None
         self.neural_weight_surface = None
         self.weight_change = False
+
+    def render_text(self,surf,text,pos):
+        text = self.font.render(text,True,(200,200,200))
+        trect = text.get_rect()
+        trect.topleft =  pos 
+        surf.blit(text,trect)
+        return surf
+
 
     def create_pack(self,arr):
         l = arr.shape[0]
@@ -340,6 +349,49 @@ class Simulator(Runner):
         else:
             return self.neural_weight_surface 
 
+    def surf_create_graph(self,values,x_label,y_value,width):
+        wid,hei = width,150
+        surf_size = (wid,hei)
+        surf = py.Surface(surf_size)
+        length = len(values)
+        text = self.font.render(x_label,True,(200,200,200))
+        # mark_text = self.font.render("R: "+str(values[-1]), True, (200,200,200)) 
+        mark_text = self.font.render(y_value,True, (200,200,200)) 
+        maxi  =max(values)
+        mini = min(values)
+        poly = []
+        for i in range(0,length,max(1,int(length/(wid-10) )) ):
+            v = values[i]
+            x = (i/length)*(wid-10)
+            if (maxi-mini) != 0:
+                y = (hei-text.get_height()) - ((hei-10)/(maxi -mini))*v
+            else:
+                y = (hei-text.get_height())
+            poly.append((x,y))
+        line_poly = list(poly)
+        poly.append((wid-5,hei-5))
+        poly.append(poly[0])
+        py.draw.polygon(surf,(200,0,200),poly,0)
+        if len(line_poly) > 1:
+            py.draw.lines(surf,(0,255,255),False,line_poly,3)
+        # surf = self.render_text(surf,"steps",(self.wid/2))
+        trect = text.get_rect()
+        trect.topright =  (text.get_width(),hei-text.get_height()) 
+        surf.blit(text,trect)
+        
+        trect = mark_text.get_rect()
+        trect.topleft = (0,0)
+        surf.blit(mark_text,trect)
+        
+            # py.draw.circle(surf,(0,255,255),(x,y),1)
+        return surf
+
+    def draw_episode_reward(self,w=150):
+        y_value = "R: "+ str(self.episode_rewards[-1])
+        surf = self.surf_create_graph(self.episode_rewards,"steps",y_value,width=w)
+        return surf
+    
+
     def draw_neural_image(self):
         panel = py.Surface((500,self.window.get_height()))
         surf_activation,asize = self.surf_neural_activation()
@@ -349,6 +401,8 @@ class Simulator(Runner):
         if surf_weights is not None:
             panel.blit(surf_weights,(asize[0],0))
         panel.blit(surf_hidden,(0,max(asize[1],wsize[1])))
+        surf_graph_1 = self.draw_episode_reward(w=hsize[0] )
+        panel.blit(surf_graph_1, (0,max(asize[1],wsize[1])+ surf_hidden.get_height()+5) )
         self.window.blit(panel,(500,10))
 
     def event_handler(self):
@@ -367,8 +421,9 @@ class Simulator(Runner):
             print("Recurrent Model")
             reset_model = True
         self.env.display_neural_image = self.visual_activations
+        
         for _ in range(episodes):
-
+            self.episode_rewards = []
             self.env.reset()
             self.env.enable_draw = True if not train or _ % render_once == render_once-1 else False
 
@@ -393,6 +448,7 @@ class Simulator(Runner):
                 newstate,reward = self.env.act(u)
                 state = newstate.reshape(-1)
                 trewards += reward
+                self.episode_rewards.append(trewards)
 
                 if train:
                     self.trainer.store_records(reward,log_prob)
