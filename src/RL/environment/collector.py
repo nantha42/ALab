@@ -31,7 +31,6 @@ class PowerGame:
         self.current_step = 0
         self.total_rewards = 0
         
-
         #initializing agents
         self.RES = 9
         self.PROCESSOR = 8
@@ -220,5 +219,3 @@ class PowerGame:
         self.current_step += 1
         if self.enable_draw:
             self.draw()
-
-

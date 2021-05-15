@@ -65,8 +65,6 @@ class Agent(nn.Module):
 
 if __name__ == '__main__':
     # env = PowerGame(gr=20, gc=20, vis=5,neural_image=True)
-    py.init()
-    windwo = py.display.set_mode((100,100))
     env = PowerGame(gr=20, gc=20, vis=5)
     agent = RAgent(5*5)
     agent.load_state_dict(T.load("logs/models/1620908857.pth"))

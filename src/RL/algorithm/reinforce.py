@@ -369,7 +369,7 @@ class Simulator(Runner):
                 y = (hei-text.get_height())
             poly.append((x,y))
         line_poly = list(poly)
-        poly.append((wid-5,hei-5))
+        poly.append((poly[-1][0],poly[0][1]))
         poly.append(poly[0])
         py.draw.polygon(surf,(200,0,200),poly,0)
         if len(line_poly) > 1:
@@ -411,7 +411,6 @@ class Simulator(Runner):
                 py.quit()
                 exit()
  
-
     def run(self,episodes,steps,train=False,render_once=1e10,saveonce=10):
         if train:
             assert self.recorder.log_message is not None, "log_message is necessary during training, Instantiate Runner with log message"
