@@ -5,8 +5,9 @@ import typing
 import numpy as np
 from torchsummary import summary
 
-from algorithm.reinforce import Trainer, Runner
-from environment.power import PowerGame
+from algorithm.reinforce import Trainer, Runner, Simulator
+# from environment.power import PowerGame
+from environment.collector import PowerGame
 
 
 class RAgent(nn.Module):
@@ -51,19 +52,38 @@ class Agent(nn.Module):
         return o
 
 
-env = PowerGame(gr=20, gc=20, vis=5,neural_image=True)
-agent = RAgent(5*5)
-agent.load_state_dict(T.load("logs/models/1620290798.pth"))
-trainer = Trainer(agent, learning_rate=0.001)
 
-env.enable_draw = False
+# runner = Runner(
+#         agent,env,trainer,
+#         nactions = 6,
+#         log_message="Continuing Training Model",
+#         visual_activations=True
+#         )
+
+# runner.run(1000,5000,train=False,render_once=10,saveonce=7)
 
 
-runner = Runner(
+if __name__ == '__main__':
+    # env = PowerGame(gr=20, gc=20, vis=5,neural_image=True)
+    env = PowerGame(gr=20, gc=20, vis=5)
+    agent = RAgent(5*5)
+    agent.load_state_dict(T.load("logs/models/1620908857.pth"))
+    trainer = Trainer(agent, learning_rate=0.001)
+    env.enable_draw = False
+    # runner = Runner(
+    #         agent,env,trainer,
+    #         nactions = 6,
+    #         log_message="Continuing Training Model",
+    #         visual_activations=True
+    #         )
+   
+    # runner.run(1000,5000,train=False,render_once=10,saveonce=7)
+
+    s = Simulator(
         agent,env,trainer,
-        nactions = 6,
-        log_message="Continuing Training Model",
-        visual_activations=True
-        )
-
-runner.run(1000,5000,train=False,render_once=10,saveonce=7)
+        nactions=6,
+        log_message="Testing this high performance model",
+        visual_activations= True 
+    )
+    print(s.visual_activations)
+    s.run(1000,5000,train=False,render_once=10,saveonce=7)
