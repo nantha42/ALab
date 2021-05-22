@@ -50,10 +50,15 @@ class PowerGame:
         x,y = self.agent_pos
         vis = np.ones((self.vissize,self.vissize))*-1
         v,h = self.grid.shape
-        for i in range(-2,3):
-            for j in range(-2,3):
+        r = self.vissize - 5
+        s = -2 - r/2
+        r -= r/2
+        e = 3 + r
+ 
+        for i in range(r,e):
+            for j in range(r,e):
                 if(0 <= x+i < v and 0 <= y+j < h):
-                    vis[i+2,j+2] = self.grid[x+i,y+j] 
+                    vis[i-s,j-s] = self.grid[x+i,y+j] 
         self.visibility = vis
         return self.visibility 
 

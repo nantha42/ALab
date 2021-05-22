@@ -2,10 +2,11 @@ import pygame as py
 import typing
 import numpy as np 
 from icecream import ic
-np.random.seed(5)
-
 
 ENABLE_DRAW = True 
+
+#TODO environment act and agent act how to implement this 
+
 
 class Agent:
     def __init__(self):
@@ -60,7 +61,7 @@ class Agent:
             self.g_stor[cx][cy] = 1
             self.reward = 1
 
-
+        return reward
 
 class Gatherer:
     def __init__(self,gr=10,gc=10,vis=7,nagents = 1):
@@ -105,69 +106,54 @@ class Gatherer:
         trect.topleft =  pos 
         self.win.blit(text,trect)
 
-
-    def get_state(self) -> np.ndarray :
-        x,y = self.agent_pos
-        vis = np.ones((self.vissize,self.vissize))*-1
-        v,h = self.grid.shape
-        for i in range(-2,3):
-            for j in range(-2,3):
-                if(0 <= x+i < v and 0 <= y+j < h):
-                    vis[i+2,j+2] = self.grid[x+i,y+j] 
-        self.visibility = vis
-        return self.visibility 
-
-    def act(self,action:np.ndarray):
-        left,up,right,down = action[:4]
-        v,h = self.grid.shape
-        collect = action[4]
-        build_proc = action[5]
-        cx,cy = self.agent_pos
-        self.trail_positions.append([cx,cy])
-
-        if len(self.trail_positions) > 15:
-            self.trail_positions.pop(0)
+    def get_state(self,i):
+        agent = self.agents[i]
+        x,y = agent.x,agent.y
+        g_res= np.ones((1,self.vissize,self.vissize))*-1  #TODO try with np.zeros
+        g_stor_tanks = np.ones((1,self.vissize,self.vissize))*-1
+        g_stored =  np.ones((1,self.vissize,self.vissize))*-1
+        g_agents = np.ones((1,self.vissize,self.vissize))*-1
+        v,h = self.grid_resource.shape
         
-        reward = 0
-        if (left + right + up + down ) > 0 :
-            self.agent_energy-=1
-        
-        if self.agent_energy < 1:
-            self.game_done = True
-            return self.get_state(),-1
+        r = self.vissize - 5
+        s = -2 - r/2
+        r -= r/2
+        e = 3 + r
+        for i in range(s,e):
+            for j in range(s,e):
+                if( 0 <= x+i < v and 0 <= y+j < h):
+                    g_res[0][i-s,j-s] = self.grid_resource[x+i,y+j] 
+                    g_stor_tanks[0][i-s,j-s] = self.grid_storages[x+i,y+j]
+                    g_stored[0][i-s,j-s] = self.grid_stored[x+i,y+j]
 
-        if left > 0 and self.agent_pos[1]>0:
-            self.agent_pos[1] -=1
-        elif right > 0 and self.agent_pos[1]< h-1:
-            self.agent_pos[1] += 1
-        elif up > 0 and self.agent_pos[0] >0:
-            self.agent_pos[0] -=1 
-        elif down>0 and self.agent_pos[0] < v-1:
-            self.agent_pos[0] +=1
-        elif collect > 0 and (self.grid[cx][cy] == self.RES or self.grid[cx][cy] == self.ITEM ):
-            if self.grid[cx][cy] == self.RES:
-                self.res -= 1
-                reward = 1
-                self.collected += 1
-            elif self.grid[cx][cy] == self.ITEM:
-                reward = 5
-                self.items += 1
-                self.agent_energy += 50 
-                self.collected += 3 
-            self.grid[cx][cy] = 0
-            reward = 1
+        for i in range(s,e):
+            for j in range(s,e):
+                if( 0 <= x+i < v and 0 <= y+j < h):
+        for a in self.agents:
+            if a != self.agents[i]:
+                ox,oy = a.x,a.y
+                xx,yy  = agent.x,agent.y
+                if xx-s <= ox < xx+e  and yy-s <= oy < yy+e:
+                    px = ox - xx if ox < xx else (-s+e)//2 + xx- ox
+                    py = oy - yy if oy < yy else (-s + e)//2 + yy - oy
+                    g_agents[0][px][py] = 1 
 
-        elif build_proc > 0 and self.collected >= 7 and self.grid[cx][cy] == 0 :
-            self.grid[cx][cy] = self.PROCESSOR
-            self.processors.append([cx,cy])
-            self.collected  -= 7  # 7 resources = 1 processor
-            self.reward = 2
-            self.agent_energy -= 20
-        
-        new_state = self.get_state()
-        self.total_rewards += reward
-        return new_state,reward
- 
+        return np.concatenate([  
+            g_res,g_stor_tanks,g_stored,g_agents
+        ],axis=0).reshape(-1)
+
+    def act(self,action_vecs):
+        """action_vec should is 2 dimension always"""
+        rewards = []
+        states = []
+        for i in range(len(self.agents)):
+            agent = self.agents[i]
+            r = agent.act(action_vecs[i],self.grid_resource,self.grid_storages,self.grid_stored )
+            rewards.append(r)
+        for i in range(len(self.agents)) :
+            states.append(self.get_state(i))  # unmatrixed shape of state appened to states
+        return states, rewards
+
     def reset(self,hard=False):
         if hard:
             np.random.seed(5)
