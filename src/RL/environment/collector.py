@@ -9,6 +9,7 @@ ENABLE_DRAW = True
 
 class PowerGame:
     def __init__(self,gr=10,gc=10,vis=7):
+        py.init()
         self.box_size = 20 
         self.font = py.font.SysFont("times",20)
         self.grid = np.zeros((gr,gc))
@@ -30,7 +31,7 @@ class PowerGame:
         self.processors = []
         self.current_step = 0
         self.total_rewards = 0
-        
+        self.trail_positions = []        
         #initializing agents
         self.RES = 9
         self.PROCESSOR = 8
@@ -60,6 +61,10 @@ class PowerGame:
         collect = action[4]
         build_proc = action[5]
         cx,cy = self.agent_pos
+        self.trail_positions.append([cx,cy])
+
+        if len(self.trail_positions) > 15:
+            self.trail_positions.pop(0)
         
         reward = 0
         if left > 0 and self.agent_pos[1]>0:
@@ -125,6 +130,7 @@ class PowerGame:
         bs = self.box_size#box size
         sx,sy = self.start_position 
         color = (100,0,0)
+        color = (60,0,60)
 
         for i in range(v+1):
             py.draw.line(self.win,color,(sx,sy+i*bs),(sx+h*bs,sy+i*bs))
@@ -156,10 +162,17 @@ class PowerGame:
                 elif self.grid[i][j] == self.ITEM:
                     self.draw_box(i,j,(0,255,255))
 
+    def draw_trail(self):
+
+        for i in range(len(self.trail_positions)):
+            x,y = self.trail_positions[i]
+            c = 30 + (1.4)**i
+            self.draw_box(x,y,(0,0,c))
 
     def draw(self):
         self.win.fill((0,0,0))
         self.draw_grid()
+        self.draw_trail()
         self.draw_items()
         self.render_text(f"Collected :{self.collected:3}",(0,0))
         self.render_text(f"Items     :{self.items:3}",(0,20))
