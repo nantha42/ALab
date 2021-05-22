@@ -82,7 +82,7 @@ if __name__ == '__main__':
     s = Simulator(
         agent,env,trainer,
         nactions=6,
-        log_message="Training with Energy ",
+        log_message="Scaling up processors reduced collected gains",
         visual_activations= True 
     )
     print(s.visual_activations)

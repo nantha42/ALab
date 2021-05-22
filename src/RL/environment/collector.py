@@ -93,14 +93,16 @@ class PowerGame:
                 reward = 5
                 self.items += 1
                 self.agent_energy += 50 
+                self.collected += 3 
             self.grid[cx][cy] = 0
             reward = 1
 
-        elif build_proc > 0 and self.collected >= 7 and self.grid[cx][cy] == 0:
+        elif build_proc > 0 and self.collected >= 7 and self.grid[cx][cy] == 0 :
             self.grid[cx][cy] = self.PROCESSOR
             self.processors.append([cx,cy])
             self.collected  -= 7  # 7 resources = 1 processor
             self.reward = 2
+            self.agent_energy -= 20
         
         new_state = self.get_state()
         self.total_rewards += reward
