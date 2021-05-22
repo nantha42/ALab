@@ -92,7 +92,7 @@ class PowerGame:
             elif self.grid[cx][cy] == self.ITEM:
                 reward = 5
                 self.items += 1
-                self.agent_energy += 20 
+                self.agent_energy += 50 
             self.grid[cx][cy] = 0
             reward = 1
 

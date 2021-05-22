@@ -67,7 +67,7 @@ if __name__ == '__main__':
     # env = PowerGame(gr=20, gc=20, vis=5,neural_image=True)
     env = PowerGame(gr=20, gc=20, vis=5)
     agent = RAgent(5*5)
-    agent.load_state_dict(T.load("logs/models/1620908857.pth"))
+    agent.load_state_dict(T.load("logs/models/1621665458.pth"))
     trainer = Trainer(agent, learning_rate=0.001)
     env.enable_draw = False
     # runner = Runner(
