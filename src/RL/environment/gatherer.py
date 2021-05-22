@@ -13,12 +13,57 @@ class Agent:
         self.y = 0
         self.picked = 0 # 0 means no values picked  
         self.state = None
+        self.trail_positions = []
 
-    
+    def act(self,action_vector,g_res,g_stor,g_stored):
+        left,up,right,down = action[:4]
+        v,h = self.grid.shape
+        pick = action[4]
+        drop = action[5]
+        build_stor = action[6]
+        max_amount = 20
+
+        cx,cy = self.x, self.y
+        self.trail_positions.append([cx,cy])
+        if len(self.trail_positions) > 20:
+            self.trail_positions.pop(0)
+        
+        if left and self.y > 0:  self.agent_pos[1]>0:
+            self.y -= 1
+        elif right and self.y < h-1: 
+            self.y += 1
+        elif up and self.x > 0: 
+            self.x -=1 
+        elif downand self.x < v-1 : 
+            self.x += 1 
+        elif pick and (self.g_res[cx][cy] > 0) 
+            reward = 1
+            self.picked = self.g_res[cx][cy]
+            self.g_res[cx][cy] = 0
+            reward = 1
+        elif drop and self.picked:
+            if g_stor[cx][cy] != 0:
+                rem = (max_amount - g_stored[cx][cy])
+                if rem >= self.picked:
+                    reward = int(self.picked*1.9) #storing the resources within the maxamount will give higher results other wise
+                    g_stored[cx][cy] += self.picked#will reduce reward 
+                    self.picked = 0
+                else:
+                    reward = int(rem*1.5) # getting collective will yield more reward than brining it one at once
+                    g_stored[cx][cy] = max_amount
+                    self.picked -= rem
+            else:
+                g_res[cx][cy] += self.picked 
+            self.picked= 0    
+        elif build_stor and self.g_stor[cx][cy] == 0 and self.picked > 3:
+            #construction of storage is possible if agent picked more than 3 resource items
+            self.g_stor[cx][cy] = 1
+            self.reward = 1
+
 
 
 class Gatherer:
-    def __init__(self,gr=10,gc=10,vis=7):
+    def __init__(self,gr=10,gc=10,vis=7,nagents = 1):
         py.init()
         self.box_size = 20 
         self.font = py.font.SysFont("times",20)
@@ -28,14 +73,16 @@ class Gatherer:
         self.h = 50 + gr*self.box_size + 50
         self.win =  py.Surface((self.w,self.h),py.DOUBLEBUF,32)
         self.start_position= [50,50]
+        self.nagents  = nagents
 
         self.grid_resource = np.zeros((gr,gc))
-        self.grid_agents = np.zeros((gr,gc))
         self.grid_storages = np.zeros((gr,gc))
+        self.grid_stored = np.zeros((gr,gc))
 
-        
-
-        self.agents = [] 
+        for a in range(nagents):
+            self.agents.append(Agent())
+            agent = self.agents[0]
+            self.grid_agents[0][agent.x][agent.y]
         self.timer = 0
         
         self.res = 0
