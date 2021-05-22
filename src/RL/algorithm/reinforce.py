@@ -434,7 +434,8 @@ class Simulator(Runner):
             trewards = 0
 
             for step in bar:
-                
+                if self.env.game_done:
+                    break                
                 state = T.from_numpy(state).float()
                 actions = self.model(state)
 

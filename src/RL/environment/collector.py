@@ -26,12 +26,14 @@ class PowerGame:
         self.collected = 0
         self.processors = 0
         self.agent_pos = np.array([0,0])
+        self.agent_energy = 30 
         self.enable_draw = ENABLE_DRAW 
         self.visibility = None
         self.processors = []
         self.current_step = 0
         self.total_rewards = 0
         self.trail_positions = []        
+        self.game_done = False
         #initializing agents
         self.RES = 9
         self.PROCESSOR = 8
@@ -67,6 +69,13 @@ class PowerGame:
             self.trail_positions.pop(0)
         
         reward = 0
+        if (left + right + up + down ) > 0 :
+            self.agent_energy-=1
+        
+        if self.agent_energy < 1:
+            self.game_done = True
+            return self.get_state(),-1
+
         if left > 0 and self.agent_pos[1]>0:
             self.agent_pos[1] -=1
         elif right > 0 and self.agent_pos[1]< h-1:
@@ -83,6 +92,7 @@ class PowerGame:
             elif self.grid[cx][cy] == self.ITEM:
                 reward = 5
                 self.items += 1
+                self.agent_energy += 20 
             self.grid[cx][cy] = 0
             reward = 1
 
@@ -100,6 +110,8 @@ class PowerGame:
         if hard:
             np.random.seed(5)
         v,h = self.grid.shape
+        self.agent_energy = 400
+        self.game_done = False
         self.grid = np.zeros((v,h))
         self.agent_pos = np.array([0,0]) 
         self.res = 0
@@ -177,7 +189,8 @@ class PowerGame:
         self.render_text(f"Collected :{self.collected:3}",(0,0))
         self.render_text(f"Items     :{self.items:3}",(0,20))
         self.render_text(f"Steps     :{self.current_step:4}",(250,0))
-        self.render_text(f"Rewards :{self.total_rewards:3}",(250,20))
+        # self.render_text(f"Rewards :{self.total_rewards:3}",(250,20))
+        self.render_text(f"Energy :{self.agent_energy:3}",(250,20))
         # self.agent_pos[1] = ((self.agent_pos[1]+1)%30)
         # if self.agent_pos[1] == 0:
         #     self.agent_pos[0] = ((self.agent_pos[0]+1)%20)
