@@ -17,6 +17,7 @@ class Agent:
         self.trail_positions = []
 
     def act(self,action_vector,g_res,g_stor,g_stored):
+        """ Rewarding systems is defined in this function """
         left,up,right,down = action[:4]
         v,h = self.grid.shape
         pick = action[4]
@@ -239,11 +240,6 @@ class Gatherer:
         self.render_text(f"Steps     :{self.current_step:4}",(250,0))
         # self.render_text(f"Rewards :{self.total_rewards:3}",(250,20))
         self.render_text(f"Energy :{self.agent_energy:3}",(250,20))
-        # self.agent_pos[1] = ((self.agent_pos[1]+1)%30)
-        # if self.agent_pos[1] == 0:
-        #     self.agent_pos[0] = ((self.agent_pos[0]+1)%20)
-        # # print(self.agent_pos)
-        # print(self.get_state())
         self.get_state()
         self.draw_box(self.agent_pos[0],self.agent_pos[1],(0,0,200))
         self.draw_visibility()
@@ -252,32 +248,25 @@ class Gatherer:
     def spawn_resources(self):
         #initializing foods
         self.timer +=1
-        v,h = self.grid.shape
+        v,h = self.grid_resource.shape
         if self.timer%10 == 0 and self.res < 10:
             while True: 
                 r = np.random.randint(0,v)
                 c = np.random.randint(0,h)
-                if self.grid[r][c] == 0:
-                    self.grid[r][c] = self.RES
+                if self.grid_resource[r][c] == 0:
+                    self.grid_resource[r][c] = 1 
                     self.res +=1
                     break
-        if self.timer%10 == 0:
-            for processor in self.processors:
-                px,py = processor
-                if self.collected > 3:
-                    if px -1 > -1 and self.grid[px-1][py] == 0:
-                        self.grid[px-1][py] = self.ITEM
-                        self.collected -= 3
-                    elif px+1 < v and self.grid[px+1][py] == 0:
-                        self.grid[px+1][py] = self.ITEM
-                        self.collected -= 3
-                    elif py -1 > -1 and self.grid[px][py-1] == 0:
-                        self.grid[px][py-1] = self.ITEM
-                        self.collected -= 3
-                    elif py+1 < h and self.grid[px][py+1] == 0:
-                        self.grid[px][py+1] = self.ITEM
-                        self.collected -= 3
-                else:
-                    break
-        pass
 
+    def event_handler(self,event):
+        pass 
+    
+    def update(self):
+        self.spawn_resources()
+    
+    def step(self,speed=0):
+        self.event_handler(None)
+        self.update()
+        self.current_step += 1
+        if self.enable_draw:
+            self.draw()
