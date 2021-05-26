@@ -6,9 +6,8 @@ import typing
 import numpy as np
 from torchsummary import summary
 
-from algorithm.reinforce import Trainer, Runner, Simulator
-# from environment.power import PowerGame
-from environment.collector import PowerGame
+from algorithm.reinforce import Trainer, MultiAgentRunner, MultiAgentSimulator
+from environment.gatherer import Gatherer
 
 
 class RAgent(nn.Module):
@@ -24,6 +23,17 @@ class RAgent(nn.Module):
         )
         self.type = "mem"
         self.hidden_vectors = None 
+        self.activations = []
+
+        def hook_fn(m,i,o):
+            if type(o) == type((1,)):
+                for u in o:
+                    self.activations.append(u.reshape(-1))
+            else:
+                self.activations.append(o.reshape(-1))
+
+        for n,l in self._modules.items():
+            l.register_forward_hook(hook_fn)
 
     def reset(self):
         self.hidden = T.zeros((1, 1, 64))
@@ -35,7 +45,6 @@ class RAgent(nn.Module):
         self.hidden_vectors = self.hidden.detach().clone().squeeze(0).numpy()
         o = self.layers(x)
         return o
-
 
 class Agent(nn.Module):
     def __init__(self, input_size):
@@ -66,10 +75,13 @@ class Agent(nn.Module):
 
 if __name__ == '__main__':
     # env = PowerGame(gr=20, gc=20, vis=5,neural_image=True)
-    env = PowerGame(gr=20, gc=20, vis=5)
-    agent = RAgent(5*5)
-    agent.load_state_dict(T.load("logs/models/1621665458.pth"))
-    trainer = Trainer(agent, learning_rate=0.001)
+    env = Gatherer(gr = 20,gc = 20,vis = 7)
+    model = RAgent(input_size = 196)
+    model1 = RAgent(input_size = 196)
+    # agent.load_state_dict(T.load("logs/models/1621665458.pth"))
+
+    trainer = Trainer(model, learning_rate=0.001)
+    trainer1 = Trainer(model1, learning_rate=0.001)
     env.enable_draw = False
     # runner = Runner(
     #         agent,env,trainer,
@@ -79,12 +91,16 @@ if __name__ == '__main__':
     #         )
    
     # runner.run(1000,5000,train=False,render_once=10,saveonce=7)
-
-    s = Simulator(
-        agent,env,trainer,
-        nactions=6,
-        log_message="Scaling up processors reduced collected gains",
-        visual_activations= True 
+    s = MultiAgentSimulator(
+        [model,model1],env,[trainer,trainer1],nactions=7,
+        log_message="Will not work for logging",
+        visual_activations = True
     )
+    # s = Simulator(
+    #     agent,env,trainer,
+    #     nactions=6,
+    #     log_message="Scaling up processors reduced collected gains",
+    #     visual_activations= True 
+    # )
     print(s.visual_activations)
-    s.run(1000,5000,train=True,render_once=10,saveonce=7)
+    s.run(1000,5000,train=True,render_once=1,saveonce=7)

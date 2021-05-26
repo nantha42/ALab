@@ -151,7 +151,7 @@ class Runner:
 
 class Simulator(Runner):
     def __init__(self,model,environment,trainer,nactions=6,log_message=None,visual_activations = False):
-        super().__init__(model,environment,trainer,nactions=6,log_message=log_message,visual_activations = visual_activations)
+        super().__init__(model,environment,trainer,nactions=nactions,log_message=log_message,visual_activations = visual_activations)
         py.init()        
         extra_width = 300 
         env_w = environment.win.get_width()
@@ -530,7 +530,7 @@ class MultiAgentRunner:
 
 class MultiAgentSimulator(MultiAgentRunner):
     def __init__(self,models,environment,trainers,nactions=6,log_message=None,visual_activations = False):
-        super().__init__(models,environment,trainers,nactions=6,log_message=log_message,visual_activations = visual_activations)
+        super().__init__(models,environment,trainers,nactions=nactions,log_message=log_message,visual_activations = visual_activations)
 
         py.init()        
         extra_width = 300 
@@ -810,20 +810,19 @@ class MultiAgentSimulator(MultiAgentRunner):
                     model.reset()
 
             states = []
-            for i in range(len(self.env.agent)):
+            for i in range(len(self.env.agents)):
                 state = self.env.get_state(i)
                 states.append(state)
 
             bar = tqdm(range(steps),bar_format='{l_bar}{bar:10}{r_bar}{bar:-10b}')
             trewards = np.zeros((1,len(self.models)))
-
             for step in bar:
                 if self.env.game_done:
                     break
                 action_vecs = []
-                log_porbs = []
+                log_probs = []
                 for ind in range(len(states)):
-                    state = states[ind]
+                    state = T.from_numpy(states[ind]).float()
                     actions = self.models[ind](state)
                     c = Categorical(actions)
                     action = c.sample()
@@ -836,23 +835,21 @@ class MultiAgentSimulator(MultiAgentRunner):
 
                 newstates,rewards = self.env.act(action_vecs)
                 states = newstates
+                all_dead = True 
                 if train:
                     for j in range(len(newstates)):
-                        self.trainers[j].store_records(rewards[j],log_probs[j])
-                    
+                        if not self.env.agents[j].dead:
+                            self.trainers[j].store_records(rewards[j],log_probs[j])
+                            all_dead = False
+                   
                 trewards += np.array(rewards)
 
-                # c = Categorical(actions)
-                # action = c.sample()
-                # log_prob = c.log_prob(action)
-
-                # u = np.zeros(self.nactions)
-                # u[action] = 1.0
-                # newstate,reward = self.env.act(u)
-
-                state = newstate.reshape(-1)
-                trewards += reward
+                states = newstates
+                trewards += rewards
                 self.episode_rewards.append(trewards)
+                if all_dead:
+                    break
+ 
 
                 # if self.visual_activations :
                 #     u = T.cat(self.activations,dim=0).reshape(-1)
@@ -874,7 +871,7 @@ class MultiAgentSimulator(MultiAgentRunner):
                 self.event_handler()
                 self.window.fill((0,0,0))
                 if self.visual_activations and (not train  or _ % render_once == render_once-1):
-                    self.draw_neural_image()
+                    # self.draw_neural_image()
                     self.window.blit(self.env.win,(0,0))
                 
             if train:

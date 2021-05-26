@@ -7,7 +7,6 @@ ENABLE_DRAW = True
 
 #TODO environment act and agent act how to implement this 
 
-
 class Agent:
     def __init__(self):
         self.x = 0 
@@ -15,53 +14,65 @@ class Agent:
         self.picked = 0 # 0 means no values picked  
         self.state = None
         self.trail_positions = []
+        self.energy = 100
+        self.dead = False
 
     def act(self,action_vector,g_res,g_stor,g_stored):
         """ Rewarding systems is defined in this function """
-        left,up,right,down = action[:4]
-        v,h = self.grid.shape
-        pick = action[4]
-        drop = action[5]
-        build_stor = action[6]
+        if self.energy<1:
+            self.dead = True
+            return 0
+        left,up,right,down = action_vector[:4]
+        v,h = g_res.shape
+        pick = action_vector[4]
+        drop = action_vector[5]
+        build_stor = action_vector[6]
         max_amount = 20
-
+        reward = 0
         cx,cy = self.x, self.y
         self.trail_positions.append([cx,cy])
         if len(self.trail_positions) > 20:
             self.trail_positions.pop(0)
         
-        if left and self.y > 0:  self.agent_pos[1]>0:
+        if left and self.y > 0: 
             self.y -= 1
+            self.energy -= 1
         elif right and self.y < h-1: 
             self.y += 1
+            self.energy -= 1
         elif up and self.x > 0: 
             self.x -=1 
-        elif downand self.x < v-1 : 
+            self.energy -= 1
+        elif down and self.x < v-1 : 
             self.x += 1 
-        elif pick and (self.g_res[cx][cy] > 0) 
+            self.energy -= 1
+        elif pick and (g_res[cx][cy] > 0) :
             reward = 1
-            self.picked = self.g_res[cx][cy]
-            self.g_res[cx][cy] = 0
+            self.energy -= 1
+            self.picked = g_res[cx][cy]
+            g_res[cx][cy] = 0
             reward = 1
         elif drop and self.picked:
             if g_stor[cx][cy] != 0:
                 rem = (max_amount - g_stored[cx][cy])
                 if rem >= self.picked:
-                    reward = int(self.picked*1.9) #storing the resources within the maxamount will give higher results other wise
+                    reward = int(self.picked*2.5) #storing the resources within the maxamount will give higher results other wise
                     g_stored[cx][cy] += self.picked#will reduce reward 
+                    self.energy += self.picked*8
                     self.picked = 0
                 else:
                     reward = int(rem*1.5) # getting collective will yield more reward than brining it one at once
                     g_stored[cx][cy] = max_amount
+                    self.energy += rem*8
                     self.picked -= rem
             else:
                 g_res[cx][cy] += self.picked 
             self.picked= 0    
-        elif build_stor and self.g_stor[cx][cy] == 0 and self.picked > 3:
+        elif build_stor and g_stor[cx][cy] == 0 and self.picked > 3:
             #construction of storage is possible if agent picked more than 3 resource items
-            self.g_stor[cx][cy] = 1
-            self.reward = 1
-
+            g_stor[cx][cy] = 1
+            reward = 1
+            self.energy -= 1
         return reward
 
 class Gatherer:
@@ -80,13 +91,15 @@ class Gatherer:
         self.grid_resource = np.zeros((gr,gc))
         self.grid_storages = np.zeros((gr,gc))
         self.grid_stored = np.zeros((gr,gc))
+        self.grid_agents = np.zeros((nagents,gr,gc))
+        self.agents = []
 
         for a in range(nagents):
             self.agents.append(Agent())
-            agent = self.agents[0]
-            self.grid_agents[0][agent.x][agent.y]
+            agent = self.agents[a]
+            self.grid_agents[a][agent.x][agent.y]
+
         self.timer = 0
-        
         self.res = 0
         self.items = 0
         self.collected = 0
@@ -107,8 +120,8 @@ class Gatherer:
         trect.topleft =  pos 
         self.win.blit(text,trect)
 
-    def get_state(self,i):
-        agent = self.agents[i]
+    def get_state(self,id):
+        agent = self.agents[id]
         x,y = agent.x,agent.y
         g_res= np.ones((1,self.vissize,self.vissize))*-1  #TODO try with np.zeros
         g_stor_tanks = np.ones((1,self.vissize,self.vissize))*-1
@@ -117,9 +130,10 @@ class Gatherer:
         v,h = self.grid_resource.shape
         
         r = self.vissize - 5
-        s = -2 - r/2
-        r -= r/2
+        s = -2 - r//2
+        r -= r//2
         e = 3 + r
+
         for i in range(s,e):
             for j in range(s,e):
                 if( 0 <= x+i < v and 0 <= y+j < h):
@@ -127,11 +141,12 @@ class Gatherer:
                     g_stor_tanks[0][i-s,j-s] = self.grid_storages[x+i,y+j]
                     g_stored[0][i-s,j-s] = self.grid_stored[x+i,y+j]
 
-        for i in range(s,e):
-            for j in range(s,e):
-                if( 0 <= x+i < v and 0 <= y+j < h):
+        # for i in range(s,e):
+        #     for j in range(s,e):
+        #         if( 0 <= x+i < v and 0 <= y+j < h):
+
         for a in self.agents:
-            if a != self.agents[i]:
+            if a != agent: 
                 ox,oy = a.x,a.y
                 xx,yy  = agent.x,agent.y
                 if xx-s <= ox < xx+e  and yy-s <= oy < yy+e:
@@ -158,25 +173,25 @@ class Gatherer:
     def reset(self,hard=False):
         if hard:
             np.random.seed(5)
-        v,h = self.grid.shape
-        self.agent_energy = 400
+        v,h = self.grid_storages.shape
         self.game_done = False
-        self.grid = np.zeros((v,h))
-        self.agent_pos = np.array([0,0]) 
         self.res = 0
-        self.total_rewards =0
+        self.grid_resource = np.zeros((v,h))
+        self.grid_storages = np.zeros((v,h))
+        self.grid_stored = np.zeros((v,h))
+        self.grid_agents = np.zeros((self.nagents,v,h))
+ 
+        for agent in self.agents:
+            agent.x,agent.y = 0,0
+        self.total_rewards =agent.x,agent.y
         self.current_step = 0
-        self.items = 0
-        self.collected = 0
         self.processors = []
 
     def draw_box(self,i,j,color):
-        v,h = self.grid.shape
+        v,h = self.grid_resource.shape
         r = 1
         bs = self.box_size#box size
         sx,sy = self.start_position 
-        # print(sx,sy)
-        # print((sx+j*bs,sy+i*bs,bs,bs))
         surf = py.Surface((bs,bs),py.SRCALPHA)
         surf = surf.convert_alpha()
         py.draw.rect(surf,color,surf.get_rect())
@@ -186,7 +201,7 @@ class Gatherer:
 
     def draw_grid(self):
         #horizontal line
-        v,h = self.grid.shape
+        v,h = self.grid_resource.shape
         r = 1
         bs = self.box_size#box size
         sx,sy = self.start_position 
@@ -199,36 +214,32 @@ class Gatherer:
         for i in range(h+1):
             py.draw.line(self.win,color,(sx+i*bs,sy),(sx+i*bs,sy+v*bs))
 
-
     def draw_visibility(self):
-        if self.visibility is not None:
-            vv,vh = self.visibility.shape
-            ax,ay = self.agent_pos
-            lx,ly = self.grid.shape
+        for agent in self.agents:
+            vv,vh = self.vissize,self.vissize
+            ax,ay = agent.x,agent.y 
+            lx,ly = self.grid_resource.shape
             for i in range(vv):
                 for j in range(vh):
                     if 0<= i+ax-vv//2 < lx and 0<= j+ay-vh//2 < ly: 
                         self.draw_box(i+ax-vv//2,j+ay-vh//2,[50,50,50])
 
- 
     def draw_items(self):
-        v,h = self.grid.shape
+        v,h = self.grid_resource.shape
         #v=20 h = 30
         for i in range(v):
             for j in range(h):
-                if self.grid[i][j] == self.RES:
+                if self.grid_resource[i][j] > 0:
                     self.draw_box(i,j,(0,255,0))
-                elif self.grid[i][j] == self.PROCESSOR:
+                elif self.grid_storages[i][j] > 0:
                     self.draw_box(i,j,(255,0,0))
-                elif self.grid[i][j] == self.ITEM:
-                    self.draw_box(i,j,(0,255,255))
 
     def draw_trail(self):
-
-        for i in range(len(self.trail_positions)):
-            x,y = self.trail_positions[i]
-            c = 30 + (1.4)**i
-            self.draw_box(x,y,(0,0,c))
+        for agent in self.agents: 
+            for j in range(len(agent.trail_positions)):
+                x,y = agent.trail_positions[j]
+                c = int(30 + (1.2)**j)
+                self.draw_box(x,y,(0,0,c))
 
     def draw(self):
         self.win.fill((0,0,0))
@@ -240,8 +251,10 @@ class Gatherer:
         self.render_text(f"Steps     :{self.current_step:4}",(250,0))
         # self.render_text(f"Rewards :{self.total_rewards:3}",(250,20))
         self.render_text(f"Energy :{self.agent_energy:3}",(250,20))
-        self.get_state()
-        self.draw_box(self.agent_pos[0],self.agent_pos[1],(0,0,200))
+        # self.get_state()
+        for agent in self.agents:
+            self.draw_box(agent.x,agent.y,(0,0,200))
+        # self.draw_box(self.agent_pos[0],self.agent_pos[1],(0,0,200))
         self.draw_visibility()
         py.display.update()
 
