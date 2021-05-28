@@ -37,12 +37,11 @@ class Trainer:
 
         discounted_rewards = T.tensor(discounted_rewards)
         discounted_rewards = (discounted_rewards - discounted_rewards.mean()) / (discounted_rewards.std() + 1e-9) # normalize discounted rewards
-
         policy_gradient = []
         for log_prob, Gt in zip(self.log_probs, discounted_rewards):
             policy_gradient.append(-log_prob * Gt)
-
         self.optimizer.zero_grad()
+        # print("Length",len(policy_gradient))
         policy_gradient = T.stack(policy_gradient).sum()
         policy_gradient.backward()
         self.optimizer.step()
@@ -761,15 +760,12 @@ class MultiAgentSimulator(MultiAgentRunner):
         trect = mark_text.get_rect()
         trect.topleft = (0,0)
         surf.blit(mark_text,trect)
-        
-            # py.draw.circle(surf,(0,255,255),(x,y),1)
         return surf
 
     def draw_episode_reward(self,w=150):
         y_value = "R: "+ str(self.episode_rewards[-1])
         surf = self.surf_create_graph(self.episode_rewards,"steps",y_value,width=w)
         return surf
-    
 
     def draw_neural_image(self):
         panel = py.Surface((500,self.window.get_height()))
@@ -813,14 +809,19 @@ class MultiAgentSimulator(MultiAgentRunner):
             for i in range(len(self.env.agents)):
                 state = self.env.get_state(i)
                 states.append(state)
+            
 
             bar = tqdm(range(steps),bar_format='{l_bar}{bar:10}{r_bar}{bar:-10b}')
             trewards = np.zeros((1,len(self.models)))
             for step in bar:
+                # print("-----------------")
+                # print("Logs probs 0",len(self.trainers[0].log_probs),len(self.trainers[1].log_probs))
                 if self.env.game_done:
+                    # print("Quitting game")
                     break
                 action_vecs = []
                 log_probs = []
+
                 for ind in range(len(states)):
                     state = T.from_numpy(states[ind]).float()
                     actions = self.models[ind](state)
@@ -828,7 +829,6 @@ class MultiAgentSimulator(MultiAgentRunner):
                     action = c.sample()
                     log_prob = c.log_prob(action)
                     log_probs.append(log_prob)
-
                     u = np.zeros(self.nactions)
                     u[action] = 1.0
                     action_vecs.append(u)
@@ -836,20 +836,21 @@ class MultiAgentSimulator(MultiAgentRunner):
                 newstates,rewards = self.env.act(action_vecs)
                 states = newstates
                 all_dead = True 
+
                 if train:
                     for j in range(len(newstates)):
                         if not self.env.agents[j].dead:
                             self.trainers[j].store_records(rewards[j],log_probs[j])
                             all_dead = False
-                   
+                
+                # print("Logs probs",len(self.trainers[0].log_probs),len(self.trainers[1].log_probs))
                 trewards += np.array(rewards)
-
                 states = newstates
                 trewards += rewards
                 self.episode_rewards.append(trewards)
                 if all_dead:
+                    print("Agents dead")
                     break
- 
 
                 # if self.visual_activations :
                 #     u = T.cat(self.activations,dim=0).reshape(-1)
@@ -861,19 +862,20 @@ class MultiAgentSimulator(MultiAgentRunner):
                 #         self.weight_change = True
                 #     if type(self.model.hidden_vectors) != type(None):
                 #         self.hidden_state = self.model.hidden_vectors
-
-                bar.set_description(f"Episode: {_:4} Rewards : {np.sum(trewards)}")
+                
+                bar.set_description(f"Episode: {_:4} Rewards : {np.sum(trewards)}  Energy : {self.env.agents[0].energy} {self.env.agents[1].energy} ")
+                # print("Logs probs 1",len(self.trainers[0].log_probs),len(self.trainers[1].log_probs))
                 if train:
                     self.env.step() 
                 else:
                     self.env.step(speed=0)
-                
                 self.event_handler()
                 self.window.fill((0,0,0))
                 if self.visual_activations and (not train  or _ % render_once == render_once-1):
                     # self.draw_neural_image()
                     self.window.blit(self.env.win,(0,0))
-                
+                # print("Logs probs 2",len(self.trainers[0].log_probs),len(self.trainers[1].log_probs))
+            # print("Calling Updates")
             if train:
                 for trainer in self.trainers:
                     trainer.update()

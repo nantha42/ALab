@@ -17,6 +17,12 @@ class Agent:
         self.energy = 100
         self.dead = False
 
+    def reset(self):
+        self.x,self.y = 0,0
+        self.energy = 100
+        self.picked = 0
+        self.dead = False
+
     def act(self,action_vector,g_res,g_stor,g_stored):
         """ Rewarding systems is defined in this function """
         if self.energy<1:
@@ -47,11 +53,10 @@ class Agent:
             self.x += 1 
             self.energy -= 1
         elif pick and (g_res[cx][cy] > 0) :
-            reward = 1
-            self.energy -= 1
-            self.picked = g_res[cx][cy]
+            self.picked += g_res[cx][cy]
             g_res[cx][cy] = 0
-            reward = 1
+            reward += 1
+            self.energy += 3
         elif drop and self.picked:
             if g_stor[cx][cy] != 0:
                 rem = (max_amount - g_stored[cx][cy])
@@ -60,16 +65,20 @@ class Agent:
                     g_stored[cx][cy] += self.picked#will reduce reward 
                     self.energy += self.picked*8
                     self.picked = 0
-                else:
-                    reward = int(rem*1.5) # getting collective will yield more reward than brining it one at once
-                    g_stored[cx][cy] = max_amount
-                    self.energy += rem*8
-                    self.picked -= rem
+            #     else:
+            #         reward = int(rem*1.5) # getting collective will yield more reward than brining it one at once
+            #         g_stored[cx][cy] = max_amount
+            #         self.energy += rem*8
+            #         self.picked -= rem
             else:
                 g_res[cx][cy] += self.picked 
-            self.picked= 0    
-        elif build_stor and g_stor[cx][cy] == 0 and self.picked > 3:
+                reward -= 1
+                # reward += (g_res[cx][cy] - 1)*1.5
+                self.energy -= 1
+            self.picked = 0    
+        elif build_stor and g_stor[cx][cy] == 0 and self.picked > 1:
             #construction of storage is possible if agent picked more than 3 resource items
+            self.picked-= 2
             g_stor[cx][cy] = 1
             reward = 1
             self.energy -= 1
@@ -182,7 +191,7 @@ class Gatherer:
         self.grid_agents = np.zeros((self.nagents,v,h))
  
         for agent in self.agents:
-            agent.x,agent.y = 0,0
+            agent.reset()
         self.total_rewards =agent.x,agent.y
         self.current_step = 0
         self.processors = []
@@ -244,7 +253,7 @@ class Gatherer:
     def draw(self):
         self.win.fill((0,0,0))
         self.draw_grid()
-        self.draw_trail()
+        # self.draw_trail()
         self.draw_items()
         self.render_text(f"Collected :{self.collected:3}",(0,0))
         self.render_text(f"Items     :{self.items:3}",(0,20))
@@ -252,8 +261,9 @@ class Gatherer:
         # self.render_text(f"Rewards :{self.total_rewards:3}",(250,20))
         self.render_text(f"Energy :{self.agent_energy:3}",(250,20))
         # self.get_state()
-        for agent in self.agents:
-            self.draw_box(agent.x,agent.y,(0,0,200))
+        agent_colors = [(0,0,200),(200,0,200),(255,0,0),(255,255,0)]
+        for agent,color in zip(self.agents,agent_colors):
+            self.draw_box(agent.x,agent.y,color)
         # self.draw_box(self.agent_pos[0],self.agent_pos[1],(0,0,200))
         self.draw_visibility()
         py.display.update()
@@ -262,7 +272,8 @@ class Gatherer:
         #initializing foods
         self.timer +=1
         v,h = self.grid_resource.shape
-        if self.timer%10 == 0 and self.res < 10:
+        spawn_limit = 50
+        if self.timer%10 == 0 and self.res < spawn_limit:
             while True: 
                 r = np.random.randint(0,v)
                 c = np.random.randint(0,h)

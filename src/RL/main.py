@@ -18,7 +18,7 @@ class RAgent(nn.Module):
         self.gru = nn.GRU(64, 64, 1)
         self.hidden = T.zeros((1, 1, 64))
         self.layers = nn.Sequential(
-            nn.Linear(64, 6),
+            nn.Linear(64, 7),
             nn.Softmax(dim=-1)
         )
         self.type = "mem"
@@ -37,6 +37,7 @@ class RAgent(nn.Module):
 
     def reset(self):
         self.hidden = T.zeros((1, 1, 64))
+        self.activations = []
 
     def forward(self, x):
         x = x.reshape(1, -1, self.input_size)
@@ -75,7 +76,7 @@ class Agent(nn.Module):
 
 if __name__ == '__main__':
     # env = PowerGame(gr=20, gc=20, vis=5,neural_image=True)
-    env = Gatherer(gr = 20,gc = 20,vis = 7)
+    env = Gatherer(gr = 20,gc = 20,vis = 7,nagents=2)
     model = RAgent(input_size = 196)
     model1 = RAgent(input_size = 196)
     # agent.load_state_dict(T.load("logs/models/1621665458.pth"))
