@@ -94,7 +94,7 @@ if __name__ == '__main__':
     # runner.run(1000,5000,train=False,render_once=10,saveonce=7)
     s = MultiAgentSimulator(
         [model,model1],env,[trainer,trainer1],nactions=7,
-        log_message="Will not work for logging",
+        log_message="multi agents saving feature testing",
         visual_activations = True
     )
     # s = Simulator(
@@ -104,4 +104,4 @@ if __name__ == '__main__':
     #     visual_activations= True 
     # )
     print(s.visual_activations)
-    s.run(1000,5000,train=True,render_once=1,saveonce=7)
+    s.run(1000,500,train=True,render_once=1,saveonce=1)

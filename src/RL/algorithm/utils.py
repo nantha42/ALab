@@ -9,7 +9,8 @@ class RLGraph:
     def __init__(self):
         self.hist = []
         self.directory = "logs/"
-        self.run_name = str(int(time.time()))
+        self.run_name = str((time.time()))
+        print("GRAPH runame = ",self.run_name)
         self.log_message = None
         self.final_reward = 0
         with open(self.directory+"log.json","r")  as f:
@@ -18,6 +19,8 @@ class RLGraph:
     def save(self):
         f = open(self.directory+"hists/"+self.run_name+".pkl","wb")
         pickle.dump(self.hist,f)
+        with open(self.directory+"log.json","r")  as f:
+            self.logs = json.load(f) 
         self.logs[self.run_name] = self.log_message
         with open(self.directory+"log.json","w") as f:
             json.dump(self.logs, f,indent=2)

@@ -25,9 +25,9 @@ class Agent:
 
     def act(self,action_vector,g_res,g_stor,g_stored):
         """ Rewarding systems is defined in this function """
-        if self.energy<1:
-            self.dead = True
-            return 0
+        # if self.energy<1:
+            # self.dead = True
+            # return 0
         left,up,right,down = action_vector[:4]
         v,h = g_res.shape
         pick = action_vector[4]
@@ -61,26 +61,23 @@ class Agent:
             if g_stor[cx][cy] != 0:
                 rem = (max_amount - g_stored[cx][cy])
                 if rem >= self.picked:
-                    reward = int(self.picked*2.5) #storing the resources within the maxamount will give higher results other wise
+                    reward = int(self.picked*5.5) #storing the resources within the maxamount will give higher results other wise
                     g_stored[cx][cy] += self.picked#will reduce reward 
                     self.energy += self.picked*8
                     self.picked = 0
-            #     else:
-            #         reward = int(rem*1.5) # getting collective will yield more reward than brining it one at once
-            #         g_stored[cx][cy] = max_amount
-            #         self.energy += rem*8
-            #         self.picked -= rem
+                else:
+                    reward = int(rem*5.5) # getting collective will yield more reward than brining it one at once
+                    g_stored[cx][cy] = max_amount
+                    self.energy += rem*8
+                    self.picked -= rem
             else:
                 g_res[cx][cy] += self.picked 
-                reward -= 1
-                # reward += (g_res[cx][cy] - 1)*1.5
                 self.energy -= 1
             self.picked = 0    
         elif build_stor and g_stor[cx][cy] == 0 and self.picked > 1:
             #construction of storage is possible if agent picked more than 3 resource items
             self.picked-= 2
             g_stor[cx][cy] = 1
-            reward = 1
             self.energy -= 1
         return reward
 
@@ -273,6 +270,12 @@ class Gatherer:
         self.timer +=1
         v,h = self.grid_resource.shape
         spawn_limit = 50
+        count = 0
+        for i in range(v):
+            for j in range(h) :
+                if self.grid_resource[i][j] == 1:
+                    count+=1
+        self.res = count
         if self.timer%10 == 0 and self.res < spawn_limit:
             while True: 
                 r = np.random.randint(0,v)

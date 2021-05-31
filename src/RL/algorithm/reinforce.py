@@ -494,8 +494,10 @@ class MultiAgentRunner:
         self.models = models
         self.trainers = trainers
         self.nactions = nactions 
-        self.recorder = RLGraph()
-        self.recorder.log_message = log_message
+        self.recorders = []
+        for m in range(len(self.models)):
+            self.recorders.append(RLGraph())
+            self.recorders[m].log_message = log_message
         self.activations = []
         self.weights = []
         self.visual_activations = visual_activations
@@ -788,7 +790,7 @@ class MultiAgentSimulator(MultiAgentRunner):
  
     def run(self,episodes,steps,train=False,render_once=1e10,saveonce=10):
         if train:
-            assert self.recorder.log_message is not None, "log_message is necessary during training, Instantiate Runner with log message"
+            assert self.recorders[0].log_message is not None, "log_message is necessary during training, Instantiate Runner with log message"
 
         reset_model = False
         if hasattr(self.models[0],"type") and self.models[0].type == "mem":
@@ -863,7 +865,7 @@ class MultiAgentSimulator(MultiAgentRunner):
                 #     if type(self.model.hidden_vectors) != type(None):
                 #         self.hidden_state = self.model.hidden_vectors
                 
-                bar.set_description(f"Episode: {_:4} Rewards : {np.sum(trewards)}  Energy : {self.env.agents[0].energy} {self.env.agents[1].energy} ")
+                bar.set_description(f"Episode: {_:4} Rewards : {trewards[0][0]},{trewards[0,1]} ")
                 # print("Logs probs 1",len(self.trainers[0].log_probs),len(self.trainers[1].log_probs))
                 if train:
                     self.env.step() 
@@ -877,9 +879,15 @@ class MultiAgentSimulator(MultiAgentRunner):
                 # print("Logs probs 2",len(self.trainers[0].log_probs),len(self.trainers[1].log_probs))
             # print("Calling Updates")
             if train:
-                for trainer in self.trainers:
-                    trainer.update()
-                    trainer.clear_memory()
+               for t in range(len(self.trainers)):
+                    self.trainers[t].update()
+                    self.trainers[t].clear_memory()
+
+                    self.recorders[t].newdata(trewards[0,t])
+                    self.recorders[t].save()
+                    self.recorders[t].plot()
+                    if _ %saveonce == saveonce -1 and trewards[0,t] >= self.recorders[t].final_reward:
+                        self.recorders[t].save_model(self.models[t])
 
                 # self.trainer.update()
                 # self.trainer.clear_memory()
