@@ -74,6 +74,7 @@ class Agent:
                 g_res[cx][cy] += self.picked 
                 self.energy -= 1
             self.picked = 0    
+            self.reward = -1
         elif build_stor and g_stor[cx][cy] == 0 and self.picked > 1:
             #construction of storage is possible if agent picked more than 3 resource items
             self.picked-= 2

@@ -640,8 +640,6 @@ class MultiAgentSimulator(MultiAgentRunner):
     def surf_neural_activation(self):
         """ Returns a Drawn surface for neural activation"""
 
-        assert type(self.neural_image_values) == type(np.array([])), "neural_image_values should be in numpy array"
-
         points = []
         varr = self.neural_image_values
  
@@ -772,8 +770,8 @@ class MultiAgentSimulator(MultiAgentRunner):
     def draw_neural_image(self):
         panel = py.Surface((500,self.window.get_height()))
         surf_activation,asize = self.surf_neural_activation()
-        surf_weights,wsize = self.surf_neural_weights()
-        surf_hidden,hsize = self.surf_hidden_activation()
+        # surf_weights,wsize = self.surf_neural_weights()
+        # surf_hidden,hsize = self.surf_hidden_activation()
         panel.blit(surf_activation,(0,0))
         if surf_weights is not None:
             panel.blit(surf_weights,(asize[0],0))
@@ -838,7 +836,6 @@ class MultiAgentSimulator(MultiAgentRunner):
                 newstates,rewards = self.env.act(action_vecs)
                 states = newstates
                 all_dead = True 
-
                 if train:
                     for j in range(len(newstates)):
                         if not self.env.agents[j].dead:
@@ -854,16 +851,22 @@ class MultiAgentSimulator(MultiAgentRunner):
                     print("Agents dead")
                     break
 
-                # if self.visual_activations :
-                #     u = T.cat(self.activations,dim=0).reshape(-1)
-                #     self.neural_image_values = u.detach().numpy()
-                #     self.activations = []
-                #     if _ % 10 == 0 and step/steps == 0:
-                #         self.update_weights()
-                #         self.neural_weights = self.weights
-                #         self.weight_change = True
-                #     if type(self.model.hidden_vectors) != type(None):
-                #         self.hidden_state = self.model.hidden_vectors
+                if self.visual_activations :
+                    self.neural_image_values = []
+                    for model in self.models:
+                        activations = T.cat(model.activations,dim=0).reshape(-1)
+                        self.neural_image_values.append(activations.detach().numpy())
+                        
+                    
+                    # u = T.cat(self.activations,dim=0).reshape(-1)
+                    # self.neural_image_values = u.detach().numpy()
+                    # self.activations = []
+                    # if _ % 10 == 0 and step/steps == 0:
+                    #     self.update_weights()
+                    #     self.neural_weights = self.weights
+                    #     self.weight_change = True
+                    # if type(self.model.hidden_vectors) != type(None):
+                    #     self.hidden_state = self.model.hidden_vectors
                 
                 bar.set_description(f"Episode: {_:4} Rewards : {trewards[0][0]},{trewards[0,1]} ")
                 # print("Logs probs 1",len(self.trainers[0].log_probs),len(self.trainers[1].log_probs))
@@ -874,7 +877,7 @@ class MultiAgentSimulator(MultiAgentRunner):
                 self.event_handler()
                 self.window.fill((0,0,0))
                 if self.visual_activations and (not train  or _ % render_once == render_once-1):
-                    # self.draw_neural_image()
+                    self.draw_neural_image()
                     self.window.blit(self.env.win,(0,0))
                 # print("Logs probs 2",len(self.trainers[0].log_probs),len(self.trainers[1].log_probs))
             # print("Calling Updates")
