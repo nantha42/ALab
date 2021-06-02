@@ -43,7 +43,7 @@ class RAgent(nn.Module):
         self.hidden_states = [self.hidden]
 
     def forward(self, x):
-        x = x.reshape(-1, 1, self.input_size)
+        x = x.reshape(1, -1, self.input_size)
         x = self.pre(x)
         x, self.hidden = self.gru(x, self.hidden)
         self.hidden_states.append(self.hidden)
@@ -120,7 +120,7 @@ if __name__ == '__main__':
     #PPO TESTING
     env = PowerGame(gr=20,gc=20,vis=5)
     model = RAgent(input_size=25) 
-    model.load_state_dict(T.load("logs/models/1622623059.6184058.pth"))
+    # model.load_state_dict(T.load("logs/models/1622623059.6184058.pth"))
     # model = Agent(input_size=49) 
     trainer = Trainer(model,learning_rate=0.001)
     # trainer = TrainerNOGRU(model,learning_rate=0.001)
@@ -128,7 +128,7 @@ if __name__ == '__main__':
     s = Simulator(
         model,env,trainer,
         nactions=6,
-        log_message="Retesting Reinforce",
+        log_message="5000 steps in episode GRU input reshape",
         visual_activations = True
     )
-    s.run(1000,1000,train=True,render_once=3,saveonce=3)
+    s.run(1000,5000,train=True,render_once=10,saveonce=3)

@@ -55,5 +55,9 @@
   "1622622833.884653": "REINFORCE TESTING Fast Without Rendering ",
   "1622623059.6184058": "REINFORCE TESTING Fast Without Rendering ",
   "1622625769.348143": "Retesting Reinforce",
-  "1622627489.746049": "Retesting Reinforce"
+  "1622627489.746049": "Retesting Reinforce",
+  "1622638334.1886752": "5000 steps in episode",
+  "1622638466.8024168": "5000 steps in episode",
+  "1622639506.469884": "5000 steps in episode",
+  "1622640560.360034": "5000 steps in episode GRU input reshape"
 }

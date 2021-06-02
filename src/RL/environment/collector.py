@@ -211,7 +211,7 @@ class PowerGame:
         #initializing foods
         self.timer +=1
         v,h = self.grid.shape
-        res_limit = 20
+        res_limit = 10
         if self.timer%10 == 0 and self.res < res_limit:
             while True: 
                 r = np.random.randint(0,v)
