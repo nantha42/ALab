@@ -447,7 +447,6 @@ class Simulator(Runner):
                 state = newstate.reshape(-1)
                 trewards += reward
                 self.episode_rewards.append(trewards)
-
                 if train:
                     self.trainer.store_records(reward,log_prob)
                 
@@ -459,7 +458,7 @@ class Simulator(Runner):
                         self.update_weights()
                         self.neural_weights = self.weights
                         self.weight_change = True
-                    if type(self.model.hidden_vectors) != type(None):
+                    if self.model.type == "mem" and type(self.model.hidden_vectors) != type(None):
                         self.hidden_state = self.model.hidden_vectors
 
                 bar.set_description(f"Episode: {_:4} Rewards : {trewards}")
@@ -639,7 +638,7 @@ class MultiAgentSimulator(MultiAgentRunner):
 
     def surf_neural_activation(self):
         """ Returns a Drawn surface for neural activation"""
-
+        assert type(self.neural_image_values) == type(np.array([])), "neural_image_values should be in numpy array"
         points = []
         varr = self.neural_image_values
  

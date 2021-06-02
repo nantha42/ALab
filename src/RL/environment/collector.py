@@ -32,7 +32,7 @@ class PowerGame:
         self.processors = []
         self.current_step = 0
         self.total_rewards = 0
-        self.trail_positions = []        
+        self.trail_positions = []
         self.game_done = False
         #initializing agents
         self.RES = 9
@@ -46,13 +46,13 @@ class PowerGame:
         self.win.blit(text,trect)
 
 
-    def get_state(self) -> np.ndarray :
+    def get_state(self) -> np.ndarray:
         x,y = self.agent_pos
         vis = np.ones((self.vissize,self.vissize))*-1
         v,h = self.grid.shape
         r = self.vissize - 5
-        s = -2 - r/2
-        r -= r/2
+        s = -2 - r//2
+        r -= r//2
         e = 3 + r
  
         for i in range(r,e):
@@ -77,9 +77,9 @@ class PowerGame:
         if (left + right + up + down ) > 0 :
             self.agent_energy-=1
         
-        if self.agent_energy < 1:
-            self.game_done = True
-            return self.get_state(),-1
+        # if self.agent_energy < 1:
+        #     self.game_done = True
+        #     return self.get_state(),-1
 
         if left > 0 and self.agent_pos[1]>0:
             self.agent_pos[1] -=1
@@ -100,17 +100,17 @@ class PowerGame:
                 self.agent_energy += 50 
                 self.collected += 3 
             self.grid[cx][cy] = 0
-            reward = 1
 
         elif build_proc > 0 and self.collected >= 7 and self.grid[cx][cy] == 0 :
             self.grid[cx][cy] = self.PROCESSOR
             self.processors.append([cx,cy])
             self.collected  -= 7  # 7 resources = 1 processor
-            self.reward = 2
+            reward = 2
             self.agent_energy -= 20
         
         new_state = self.get_state()
         self.total_rewards += reward
+
         return new_state,reward
  
     def reset(self,hard=False):
@@ -182,7 +182,6 @@ class PowerGame:
                     self.draw_box(i,j,(0,255,255))
 
     def draw_trail(self):
-
         for i in range(len(self.trail_positions)):
             x,y = self.trail_positions[i]
             c = 30 + (1.4)**i
@@ -212,7 +211,8 @@ class PowerGame:
         #initializing foods
         self.timer +=1
         v,h = self.grid.shape
-        if self.timer%10 == 0 and self.res < 10:
+        res_limit = 20
+        if self.timer%10 == 0 and self.res < res_limit:
             while True: 
                 r = np.random.randint(0,v)
                 c = np.random.randint(0,h)
