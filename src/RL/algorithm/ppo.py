@@ -206,8 +206,8 @@ class TrainerNOGRU:
 
             self.optimizer.zero_grad()
             # loss = gradient.sum()
-            print("LOSS: ",loss.sum().item())
-            loss.sum().backward(retain_graph=True)
+            print("LOSS: ",loss.mean().item())
+            loss.mean().backward(retain_graph=True)
 
             # policy_gradient = T.stack(policy_gradient).sum()
             # policy_gradient.backward()
