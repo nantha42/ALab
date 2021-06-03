@@ -10,7 +10,8 @@ from torchsummary import summary
 from environment.gatherer import Gatherer
 from environment.collector import PowerGame 
 
-from algorithm.reinforce import Trainer, MultiAgentRunner, MultiAgentSimulator, Simulator
+# from algorithm.reinforce import Trainer, MultiAgentRunner, MultiAgentSimulator, Simulator
+from algorithm.reinforce import Trainer,  Simulator
 
 class RAgent(nn.Module):
     def __init__(self, input_size,output_size=6):
@@ -131,4 +132,5 @@ if __name__ == '__main__':
         log_message="5000 steps in episode GRU input reshape",
         visual_activations = True
     )
-    s.run(1000,5000,train=True,render_once=10,saveonce=3)
+    s.run(1000,5000,train=True,render_once=30,saveonce=3)
+
