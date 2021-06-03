@@ -102,12 +102,11 @@ class TrainerGRU:
 
             discounted_rewards.reverse()
             discounted_rewards = T.tensor(discounted_rewards,dtype=T.float)
+            discounted_rewards = (discounted_rewards - discounted_rewards.mean()) / (discounted_rewards.std() + 1e-9) # normalize discounted rewards
             #PROBLEM POSSIBLE OVERWRITING HIDDEN CAN DESTROY THE GRADIENT OF HIDDEN 
             self.model.hidden = hidden
-            print(hidden.grad)
             pi = self.model.forward(s)
             pi_a = pi.squeeze(1).gather(1,a)
-            print(pi_a.shape,prob_a.shape)
             ratio = T.exp( T.log(pi_a) - T.log(prob_a) )
 
             surr1 = ratio * discounted_rewards 
@@ -119,7 +118,6 @@ class TrainerGRU:
             print("LOSS: ",loss.item())
             loss.backward()
             self.optimizer.step()
-            print(hidden.grad)
 
 
 class TrainerNOGRU:
@@ -169,41 +167,15 @@ class TrainerNOGRU:
             discounted_rewards = (discounted_rewards - discounted_rewards.mean()) / (discounted_rewards.std() + 1e-9) # normalize discounted rewards
 
 
-            # print(discounted_rewards)
-
-            # disc2 = []
-            # for t in range(len(r)):
-            #     Gt = 0
-            #     pw = 0
-            #     for u in r[t:]:
-            #         Gt = Gt + gamma**pw*u
-            #         pw = pw + 1
-            #     disc2.append(Gt)
-
-            # disc2 = T.tensor(disc2 ,dtype=T.float)
-            # print(disc2)
-            # print("PROBABILITIES",prob_a)
-            # print(prob_a.shape,discounted_rewards.shape)
-            # gradient = -T.log(prob_a)*discounted_rewards
-
-            # self.model.hidden = hidden
-            # print(hidden.grad)
             pi = self.model.forward(s)
-            # print(pi.squeeze(1))
-            # print(pi.shape,pi.squeeze(0).shape)
-            # print(pi[:3].squeeze(1).gather(1,a[:3]))
             pi_a = pi.squeeze(1).gather(1,a)
 
             ratio = T.exp( T.log(pi_a) - T.log(prob_a) )
             surr1 = ratio * discounted_rewards 
-            eps_clip = 0.2
+            eps_clip = 0.1
             surr2 = T.clamp(ratio, 1-eps_clip, 1+eps_clip)*discounted_rewards
             loss = -T.min(surr1, surr2)
  
-            # policy_gradient = []
-            # for prob, Gt in zip(prob_a,discounted_rewards):
-            #     policy_gradient.append(-(prob_a)* Gt)
-
             self.optimizer.zero_grad()
             # loss = gradient.sum()
             print("LOSS: ",loss.mean().item())
