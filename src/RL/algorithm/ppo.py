@@ -91,7 +91,8 @@ class TrainerGRU:
         s, a, r,  done_mask, prob_a, (h1_in) = self.make_batch()
         hidden = h1_in.detach()
         gamma = 0.99
-        k_epoch = 2
+        
+        k_epoch = 8 
         for i in range(k_epoch):
             discounted_rewards  = []
             Gt = 0
@@ -103,6 +104,7 @@ class TrainerGRU:
             discounted_rewards = T.tensor(discounted_rewards,dtype=T.float)
             #PROBLEM POSSIBLE OVERWRITING HIDDEN CAN DESTROY THE GRADIENT OF HIDDEN 
             self.model.hidden = hidden
+            print(hidden.grad)
             pi = self.model.forward(s)
             pi_a = pi.squeeze(1).gather(1,a)
             print(pi_a.shape,prob_a.shape)
@@ -115,8 +117,9 @@ class TrainerGRU:
             self.optimizer.zero_grad()
             loss = loss.mean()
             print("LOSS: ",loss.item())
-            loss.mean().backward(retain_graph=True)
+            loss.backward()
             self.optimizer.step()
+            print(hidden.grad)
 
 
 class TrainerNOGRU:
@@ -146,15 +149,15 @@ class TrainerNOGRU:
         # print("PROB A LIST",prob_a_lst)
         s, a, r,  done_mask, prob_a = T.tensor(s_lst, dtype=T.float), T.tensor(a_lst), \
             T.tensor(r_lst), \
-            T.tensor(done_lst, dtype=T.float), T.stack(prob_a_lst)
+            T.tensor(done_lst, dtype=T.float), T.tensor(prob_a_lst)
         self.data = []
         # print("AFTER",prob_a)
-        return s, a, r,  done_mask, prob_a, h_in_lst[0] 
+        return s, a, r,  done_mask, prob_a, [] 
     
     def update(self):
         s, a, r,  done_mask, prob_a, (h1_in) = self.make_batch()
         gamma = 0.99
-        k_epoch = 1
+        k_epoch = 1 
         for i in range(k_epoch):
             discounted_rewards  = []
             Gt = 0
@@ -163,6 +166,9 @@ class TrainerNOGRU:
                 discounted_rewards.append(Gt)
             discounted_rewards.reverse()
             discounted_rewards = T.tensor(discounted_rewards,dtype = T.float)
+            discounted_rewards = (discounted_rewards - discounted_rewards.mean()) / (discounted_rewards.std() + 1e-9) # normalize discounted rewards
+
+
             # print(discounted_rewards)
 
             # disc2 = []
@@ -176,19 +182,35 @@ class TrainerNOGRU:
 
             # disc2 = T.tensor(disc2 ,dtype=T.float)
             # print(disc2)
-            # # print("PROBABILITIES",prob_a)
+            # print("PROBABILITIES",prob_a)
             # print(prob_a.shape,discounted_rewards.shape)
             # gradient = -T.log(prob_a)*discounted_rewards
-            policy_gradient = []
-            for prob, Gt in zip(prob_a,discounted_rewards):
-                policy_gradient.append(-(prob_a)* Gt)
+
+            # self.model.hidden = hidden
+            # print(hidden.grad)
+            pi = self.model.forward(s)
+            # print(pi.squeeze(1))
+            # print(pi.shape,pi.squeeze(0).shape)
+            # print(pi[:3].squeeze(1).gather(1,a[:3]))
+            pi_a = pi.squeeze(1).gather(1,a)
+
+            ratio = T.exp( T.log(pi_a) - T.log(prob_a) )
+            surr1 = ratio * discounted_rewards 
+            eps_clip = 0.2
+            surr2 = T.clamp(ratio, 1-eps_clip, 1+eps_clip)*discounted_rewards
+            loss = -T.min(surr1, surr2)
+ 
+            # policy_gradient = []
+            # for prob, Gt in zip(prob_a,discounted_rewards):
+            #     policy_gradient.append(-(prob_a)* Gt)
 
             self.optimizer.zero_grad()
             # loss = gradient.sum()
-            # print("LOSS: ",loss.item())
-            # loss.backward()
-            policy_gradient = T.stack(policy_gradient).sum()
-            policy_gradient.backward()
+            print("LOSS: ",loss.sum().item())
+            loss.sum().backward(retain_graph=True)
+
+            # policy_gradient = T.stack(policy_gradient).sum()
+            # policy_gradient.backward()
             self.optimizer.step()
 
 
@@ -578,10 +600,12 @@ class Simulator(Runner):
             trewards = 0
 
             for step in bar:
-                if self.env.game_done:
-                    break
+                # if self.env.game_done:
+                #     break
                 state = T.from_numpy(state).float()
+                # print(state)
                 actions = self.model(state).view(-1)
+                # print(actions)
                 c = Categorical(actions)
                 action = c.sample()
                 prob = c.probs[action]
@@ -593,11 +617,14 @@ class Simulator(Runner):
                 trewards += reward
                 self.episode_rewards.append(trewards)
                 if train:
-                    # self.trainer.store_records((state.tolist(),action,reward, T.log(prob),self.model.hidden_states[-2], False))
-                    self.trainer.store_records((state.tolist(),action,reward, c.log_prob(action),self.model.hidden_states[-2], False))
+                    if self.model.type == "mem":
+                        self.trainer.store_records((state.tolist(),action,reward, prob,self.model.hidden_states[-2], False))
+                    else:
+                        self.trainer.store_records((state.tolist(),action,reward, prob,[], False))
+                    # self.trainer.store_records((state.tolist(),action,reward, c.log_prob(action),self.model.hidden_states[-2], False))
                 
                 state = newstate.reshape(-1)
-                if self.visual_activations :
+                if self.model.type == "mem" and self.visual_activations :
                     u = T.cat(self.activations,dim=0).reshape(-1)
                     self.neural_image_values = u.detach().numpy()
                     self.activations = []
@@ -607,6 +634,8 @@ class Simulator(Runner):
                         self.weight_change = True
                     if type(self.model.hidden_vectors) != type(None):
                         self.hidden_state = self.model.hidden_vectors
+                else:
+                    self.activations = []
 
                 bar.set_description(f"Episode: {_:4} Rewards : {trewards}")
                 if train:
@@ -617,7 +646,8 @@ class Simulator(Runner):
                 self.event_handler()
                 self.window.fill((0,0,0))
                 if self.visual_activations and (not train  or _ % render_once == render_once-1):
-                    self.draw_neural_image()
+                    if self.model.type == "mem":
+                        self.draw_neural_image()
                     self.window.blit(self.env.win,(0,0))
                 
             if train:

@@ -5,13 +5,15 @@ import pygame as py
 import typing
 import numpy as np
 from torchsummary import summary
+T.random.manual_seed(5)
+np.random.seed(5)
 
-# from algorithm.ppo import TrainerGRU, TrainerNOGRU,Simulator
+from algorithm.ppo import TrainerGRU, TrainerNOGRU,Simulator
 from environment.gatherer import Gatherer
 from environment.collector import PowerGame 
 
 # from algorithm.reinforce import Trainer, MultiAgentRunner, MultiAgentSimulator, Simulator
-from algorithm.reinforce import Trainer,  Simulator
+# from algorithm.reinforce import Trainer,  Simulator
 
 class RAgent(nn.Module):
     def __init__(self, input_size,output_size=6):
@@ -44,7 +46,7 @@ class RAgent(nn.Module):
         self.hidden_states = [self.hidden]
 
     def forward(self, x):
-        x = x.reshape(1, -1, self.input_size)
+        x = x.reshape(-1, 1, self.input_size)
         x = self.pre(x)
         x, self.hidden = self.gru(x, self.hidden)
         self.hidden_states.append(self.hidden)
@@ -119,11 +121,11 @@ if __name__ == '__main__':
     # s.run(1000,500,train=True,render_once=1,saveonce=1)
 
     #PPO TESTING
-    env = PowerGame(gr=20,gc=20,vis=5)
-    model = RAgent(input_size=25) 
+    env = PowerGame(gr=10,gc=10,vis=5)
+    model = Agent(input_size=25) 
     # model.load_state_dict(T.load("logs/models/1622623059.6184058.pth"))
     # model = Agent(input_size=49) 
-    trainer = Trainer(model,learning_rate=0.001)
+    trainer = TrainerNOGRU(model,learning_rate=0.001)
     # trainer = TrainerNOGRU(model,learning_rate=0.001)
     env.enable_draw = False
     s = Simulator(
@@ -132,5 +134,5 @@ if __name__ == '__main__':
         log_message="5000 steps in episode GRU input reshape",
         visual_activations = True
     )
-    s.run(1000,5000,train=True,render_once=30,saveonce=3)
+    s.run(1000,500,train=True,render_once=3,saveonce=3)
 

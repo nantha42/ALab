@@ -26,14 +26,21 @@ class Trainer:
     
     def update(self): 
         discounted_rewards = []
-        GAMMA = 0.99
-        for t in range(len(self.rewards)):
-            Gt = 0 
-            pw = 0
-            for r in self.rewards[t:]:
-                Gt = Gt + GAMMA**pw * r
-                pw = pw + 1
+        # GAMMA = 0.99
+        # for t in range(len(self.rewards)):
+        #     Gt = 0 
+        #     pw = 0
+        #     for r in self.rewards[t:]:
+        #         Gt = Gt + GAMMA**pw * r
+        #         pw = pw + 1
+        #     discounted_rewards.append(Gt)
+        Gt = 0
+        gamma = 0.99
+        for t in reversed(range(len(self.rewards))):
+            Gt = self.rewards[t] + gamma*Gt
             discounted_rewards.append(Gt)
+
+        discounted_rewards.reverse()
 
         discounted_rewards = T.tensor(discounted_rewards)
         discounted_rewards = (discounted_rewards - discounted_rewards.mean()) / (discounted_rewards.std() + 1e-9) # normalize discounted rewards
