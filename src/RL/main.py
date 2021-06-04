@@ -8,7 +8,8 @@ from torchsummary import summary
 T.random.manual_seed(5)
 np.random.seed(5)
 
-from algorithm.ppo import TrainerGRU, TrainerNOGRU,Simulator
+# from algorithm.ppo import TrainerGRU, TrainerNOGRU,Simulator
+from algorithm.ppo import TrainerGRU, TrainerNOGRU_V,SimulatorV
 from environment.gatherer import Gatherer
 from environment.collector import PowerGame 
 
@@ -134,10 +135,10 @@ if __name__ == '__main__':
     model = Agent(input_size=25) 
     # model.load_state_dict(T.load("logs/models/1622623059.6184058.pth"))
     # model = Agent(input_size=49) 
-    trainer = TrainerNOGRU(model,learning_rate=0.001)
+    trainer = TrainerNOGRU_V(model,learning_rate=0.001)
     # trainer = TrainerNOGRU(model,learning_rate=0.001)
     env.enable_draw = False
-    s = Simulator(
+    s = SimulatorV(
         model,env,trainer,
         nactions=6,
         log_message="nogru with 3 kepochs",

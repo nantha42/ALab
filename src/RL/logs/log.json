@@ -89,5 +89,8 @@
   "1622753018.509299": "5000 steps in episode GRU input reshape",
   "1622753349.910336": "5000 steps in episode GRU input reshape",
   "1622753735.375081": "5000 steps in episode GRU input reshape",
-  "1622753946.054621": "nogru with 3 kepochs"
+  "1622753946.054621": "nogru with 3 kepochs",
+  "1622789465.627986": "nogru with 3 kepochs",
+  "1622789563.6384199": "nogru with 3 kepochs",
+  "1622789949.277434": "nogru with 3 kepochs"
 }
