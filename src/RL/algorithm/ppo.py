@@ -155,7 +155,7 @@ class TrainerNOGRU:
     def update(self):
         s, a, r,  done_mask, prob_a, (h1_in) = self.make_batch()
         gamma = 0.99
-        k_epoch = 1 
+        k_epoch = 4 
         for i in range(k_epoch):
             discounted_rewards  = []
             Gt = 0
@@ -172,7 +172,7 @@ class TrainerNOGRU:
 
             ratio = T.exp( T.log(pi_a) - T.log(prob_a) )
             surr1 = ratio * discounted_rewards 
-            eps_clip = 0.1
+            eps_clip = 0.2
             surr2 = T.clamp(ratio, 1-eps_clip, 1+eps_clip)*discounted_rewards
             loss = -T.min(surr1, surr2)
  

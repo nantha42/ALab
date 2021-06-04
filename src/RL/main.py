@@ -64,10 +64,19 @@ class Agent(nn.Module):
             nn.Linear(64, 6),
             nn.Softmax(dim=-1)
         )
+        self.vlayers = nn.Sequential(
+            nn.Linear(input_size, 64),
+            nn.ReLU(),
+            nn.Linear(64,1 ),
+        )
+
 
     def forward(self, x):
         o = self.layers(x)
-        return o
+        v = self.vlayers(x)
+        return o,v
+    
+
 
 
 
@@ -131,7 +140,7 @@ if __name__ == '__main__':
     s = Simulator(
         model,env,trainer,
         nactions=6,
-        log_message="5000 steps in episode GRU input reshape",
+        log_message="nogru with 3 kepochs",
         visual_activations = True
     )
     s.run(1000,500,train=True,render_once=3,saveonce=3)
