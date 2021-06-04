@@ -1,4 +1,5 @@
 
+from numpy.core.overrides import verify_matching_signatures
 import torch as T
 import torch.nn as nn
 import pygame as py
@@ -9,11 +10,11 @@ T.random.manual_seed(5)
 np.random.seed(5)
 
 # from algorithm.ppo import TrainerGRU, TrainerNOGRU,Simulator
-from algorithm.ppo import TrainerGRU, TrainerNOGRU_V,SimulatorV
+# from algorithm.ppo import TrainerGRU, TrainerNOGRU_V,SimulatorV
 from environment.gatherer import Gatherer
 from environment.collector import PowerGame 
 
-# from algorithm.reinforce import Trainer, MultiAgentRunner, MultiAgentSimulator, Simulator
+from algorithm.reinforce import Trainer, MultiAgentRunner, MultiAgentSimulator, Simulator
 # from algorithm.reinforce import Trainer,  Simulator
 
 class RAgent(nn.Module):
@@ -55,7 +56,7 @@ class RAgent(nn.Module):
         o = self.layers(x)
         return o
 
-class Agent(nn.Module):
+class AgentCA(nn.Module):
     def __init__(self, input_size):
         super().__init__()
         self.type = "reg"
@@ -77,7 +78,21 @@ class Agent(nn.Module):
         v = self.vlayers(x)
         return o,v
     
+class Agent(nn.Module):
+    def __init__(self, input_size):
+        super().__init__()
+        self.type = "reg"
+        self.layers = nn.Sequential(
+            nn.Linear(input_size, 64),
+            nn.ReLU(),
+            nn.Linear(64, 6),
+            nn.Softmax(dim=-1)
+        )
 
+    def forward(self, x):
+        o = self.layers(x)
+        return o
+ 
 
 
 
@@ -105,20 +120,23 @@ if __name__ == '__main__':
     # runner.run(1000,5000,train=False,render_once=10,saveonce=7)
 
     # MULTI AGENTS TESTING
-    # env = Gatherer(gr = 20,gc = 20,vis = 7,nagents=2)
-    # model = RAgent(input_size = 196)
-    # model1 = RAgent(input_size = 196)
-    # trainer = Trainer(model, learning_rate=0.001)
-    # trainer1 = Trainer(model1, learning_rate=0.001)
-    # env.enable_draw = False
+    env = Gatherer(gr = 10,gc = 10,vis = 5,nagents=2)
+    model = RAgent(input_size = 100)
+    model1 = RAgent(input_size = 100)
+    model2 = RAgent(input_size = 100)
+
+    trainer = Trainer(model, learning_rate=0.001)
+    trainer1 = Trainer(model1, learning_rate=0.001)
+    trainer2 = Trainer(model2, learning_rate=0.001)
+    env.enable_draw = False
  
-    # s = MultiAgentSimulator(
-    #     [model,model1],env,[trainer,trainer1],nactions=7,
-    #     log_message="multi agents saving feature testing",
-    #     visual_activations = True
-    # )
-    # print(s.visual_activations)
-    # s.run(1000,500,train=True,render_once=1,saveonce=1)
+    s = MultiAgentSimulator(
+        [model,model1,model2],env,[trainer,trainer1,trainer2],nactions=7,
+        log_message="multi agents saving feature testing",
+        visual_activations = False 
+    )
+    print(s.visual_activations)
+    s.run(1000,500,train=True,render_once=1,saveonce=1)
 
     #SINGLE AGENT TESTING REINFORCE
     # s = Simulator(
@@ -132,17 +150,27 @@ if __name__ == '__main__':
 
     #PPO TESTING
     env = PowerGame(gr=10,gc=10,vis=5)
-    model = Agent(input_size=25) 
-    # model.load_state_dict(T.load("logs/models/1622623059.6184058.pth"))
-    # model = Agent(input_size=49) 
-    trainer = TrainerNOGRU_V(model,learning_rate=0.001)
-    # trainer = TrainerNOGRU(model,learning_rate=0.001)
-    env.enable_draw = False
-    s = SimulatorV(
-        model,env,trainer,
-        nactions=6,
-        log_message="nogru with 3 kepochs",
-        visual_activations = True
-    )
-    s.run(1000,500,train=True,render_once=3,saveonce=3)
+    # model = AgentCA(input_size=25) 
+    # # model.load_state_dict(T.load("logs/models/1622623059.6184058.pth"))
+    # # model = Agent(input_size=49) 
+    # trainer = TrainerNOGRU_V(model,learning_rate=0.001)
+    # # trainer = TrainerNOGRU(model,learning_rate=0.001)
+    # env.enable_draw = False
+    # s = SimulatorV(
+    #     model,env,trainer,
+    #     nactions=6,
+    #     log_message="nogru with 3 kepochs",
+    #     visual_activations = True
+    # )
+    # s.run(1000,500,train=True,render_once=3,saveonce=3)
 
+    #REINFORCE
+    # model = Agent(input_size=25)
+    # trainer = Trainer(model,learning_rate=0.001)
+    # s = Simulator(
+    #     model,env,trainer,
+    #     nactions=6,
+    #     log_message="Reinforce",
+    #     visual_activations=False
+    # )
+    # s.run(1000,500,train=True,render_once=4,saveonce=3)

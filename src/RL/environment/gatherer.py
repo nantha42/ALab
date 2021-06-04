@@ -19,9 +19,7 @@ class Agent:
 
     def reset(self):
         self.x,self.y = 0,0
-        self.energy = 100
         self.picked = 0
-        self.dead = False
 
     def act(self,action_vector,g_res,g_stor,g_stored):
         """ Rewarding systems is defined in this function """
@@ -42,44 +40,36 @@ class Agent:
         
         if left and self.y > 0: 
             self.y -= 1
-            self.energy -= 1
         elif right and self.y < h-1: 
             self.y += 1
-            self.energy -= 1
         elif up and self.x > 0: 
             self.x -=1 
-            self.energy -= 1
         elif down and self.x < v-1 : 
             self.x += 1 
-            self.energy -= 1
         elif pick and (g_res[cx][cy] > 0) :
             self.picked += g_res[cx][cy]
             g_res[cx][cy] = 0
             reward += 1
-            self.energy += 3
+
         elif drop and self.picked:
             if g_stor[cx][cy] != 0:
                 rem = (max_amount - g_stored[cx][cy])
                 if rem >= self.picked:
                     reward = int(self.picked*5.5) #storing the resources within the maxamount will give higher results other wise
                     g_stored[cx][cy] += self.picked#will reduce reward 
-                    self.energy += self.picked*8
                     self.picked = 0
                 else:
                     reward = int(rem*5.5) # getting collective will yield more reward than brining it one at once
                     g_stored[cx][cy] = max_amount
-                    self.energy += rem*8
                     self.picked -= rem
             else:
                 g_res[cx][cy] += self.picked 
-                self.energy -= 1
             self.picked = 0    
             self.reward = -1
         elif build_stor and g_stor[cx][cy] == 0 and self.picked > 1:
             #construction of storage is possible if agent picked more than 3 resource items
             self.picked-= 2
             g_stor[cx][cy] = 1
-            self.energy -= 1
         return reward
 
 class Gatherer:
@@ -117,7 +107,7 @@ class Gatherer:
         self.processors = []
         self.current_step = 0
         self.total_rewards = 0
-        self.trail_positions = []        
+        self.trail_positions = []
         self.game_done = False
         #initializing agents
 
@@ -270,7 +260,7 @@ class Gatherer:
         #initializing foods
         self.timer +=1
         v,h = self.grid_resource.shape
-        spawn_limit = 50
+        spawn_limit = 10
         count = 0
         for i in range(v):
             for j in range(h) :

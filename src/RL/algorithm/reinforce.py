@@ -457,7 +457,7 @@ class Simulator(Runner):
                 if train:
                     self.trainer.store_records(reward,log_prob)
                 
-                if self.visual_activations :
+                if self.model.type == "mem" and self.visual_activations :
                     u = T.cat(self.activations,dim=0).reshape(-1)
                     self.neural_image_values = u.detach().numpy()
                     self.activations = []
@@ -478,7 +478,8 @@ class Simulator(Runner):
                 self.window.fill((0,0,0))
                 if self.visual_activations and (not train  or _ % render_once == render_once-1):
                     self.draw_neural_image()
-                    self.window.blit(self.env.win,(0,0))
+
+                self.window.blit(self.env.win,(0,0))
                 
             if train:
                 self.trainer.update()
@@ -841,21 +842,22 @@ class MultiAgentSimulator(MultiAgentRunner):
 
                 newstates,rewards = self.env.act(action_vecs)
                 states = newstates
-                all_dead = True 
+
+                # all_dead = True 
+                # if train:
+                #     for j in range(len(newstates)):
+                #         if not self.env.agents[j].dead:
+                #             self.trainers[j].store_records(rewards[j],log_probs[j])
                 if train:
                     for j in range(len(newstates)):
-                        if not self.env.agents[j].dead:
-                            self.trainers[j].store_records(rewards[j],log_probs[j])
-                            all_dead = False
+                        self.trainers[j].store_records(rewards[j],log_probs[j])
+                            # all_dead = False
                 
                 # print("Logs probs",len(self.trainers[0].log_probs),len(self.trainers[1].log_probs))
                 trewards += np.array(rewards)
                 states = newstates
                 trewards += rewards
                 self.episode_rewards.append(trewards)
-                if all_dead:
-                    print("Agents dead")
-                    break
 
                 if self.visual_activations :
                     self.neural_image_values = []
@@ -880,18 +882,23 @@ class MultiAgentSimulator(MultiAgentRunner):
                     self.env.step() 
                 else:
                     self.env.step(speed=0)
+
                 self.event_handler()
                 self.window.fill((0,0,0))
+
                 if self.visual_activations and (not train  or _ % render_once == render_once-1):
                     self.draw_neural_image()
+
+                if not train or _ % render_once == render_once-1: 
                     self.window.blit(self.env.win,(0,0))
+
                 # print("Logs probs 2",len(self.trainers[0].log_probs),len(self.trainers[1].log_probs))
             # print("Calling Updates")
             if train:
                for t in range(len(self.trainers)):
                     self.trainers[t].update()
+                    print("updated",t)
                     self.trainers[t].clear_memory()
-
                     self.recorders[t].newdata(trewards[0,t])
                     self.recorders[t].save()
                     self.recorders[t].plot()
