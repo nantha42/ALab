@@ -60,21 +60,6 @@ class Agent:
                 g_res[cx][cy] = 0
                 reward+= 3
 
-        # elif drop and self.picked:
-        #     if g_stor[cx][cy] != 0:
-        #         rem = (max_amount - g_stored[cx][cy])
-        #         if rem >= self.picked:
-        #             reward = int(self.picked*5.5) #storing the resources within the maxamount will give higher results other wise
-        #             g_stored[cx][cy] += self.picked#will reduce reward 
-        #             self.picked = 0
-        #         else:
-        #             reward = int(rem*5.5) # getting collective will yield more reward than brining it one at once
-        #             g_stored[cx][cy] = max_amount
-        #             self.picked -= rem
-        #     else:
-        #         g_res[cx][cy] += self.picked 
-        #     self.picked = 0 
-        #     self.reward = -1
         elif build_proc > 0 and g_processor[cx][cy] == 0 and self.picked > 4:
             #construction of storage is possible if agent picked more than 3 resource items
             self.picked-= 4
@@ -84,7 +69,7 @@ class Agent:
 class Gatherer:
     def __init__(self,gr=10,gc=10,vis=7,nagents = 1):
         py.init()
-        self.box_size = 20 
+        self.box_size = 5 
         self.font = py.font.SysFont("times",20)
         self.vissize = vis
 

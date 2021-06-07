@@ -839,6 +839,12 @@ class MultiAgentSimulator(MultiAgentRunner):
                 exit()
  
     def run(self,episodes,steps,train=False,render_once=1e10,saveonce=10):
+        print(f"Episodes     : {episodes}   ")
+        print(f"Steps        : {steps}      ")
+        print(f"Training     : {train}      ")
+        print(f"Render Once  : {render_once}")
+        print(f"Save Once    : {saveonce}   ")
+
         if train:
             assert self.recorders[0].log_message is not None, "log_message is necessary during training, Instantiate Runner with log message"
 
@@ -943,7 +949,6 @@ class MultiAgentSimulator(MultiAgentRunner):
             if train:
                for t in range(len(self.trainers)):
                     self.trainers[t].update()
-                    print("updated",t)
                     self.trainers[t].clear_memory()
                     self.recorders[t].newdata(trewards[0,t])
                     self.recorders[t].save()
