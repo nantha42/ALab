@@ -830,7 +830,7 @@ class MultiAgentSimulator(MultiAgentRunner):
         surf_graph_1 = self.draw_episode_rewards(w=100)
         # panel.blit(surf_graph_1, (0,max(asize[1],wsize[1])+ surf_hidden.get_height()+5) )
         panel.blit(surf_graph_1,(0,0))
-        self.window.blit(panel,(500,10))
+        self.window.blit(panel,(self.env.win.get_width()+10,10))
 
     def event_handler(self):
         for event in py.event.get():

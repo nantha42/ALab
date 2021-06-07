@@ -120,22 +120,24 @@ if __name__ == '__main__':
     # runner.run(1000,5000,train=False,render_once=10,saveonce=7)
 
     # MULTI AGENTS TESTING
-    nagents =  3 
-    env = Gatherer(gr = 25,gc = 25,vis = 5,nagents=nagents)
-    models_names = ["1622821726.961184","1622821726.963818","1622821726.9635148"] 
+    nagents =  1 
+    env = Gatherer(gr = 20,gc = 20,vis = 5,nagents=nagents)
+    # models_names = ["1622821726.961184","1622821726.963818","1622821726.9635148"] 
+    models_names = ["1622821726.963818","1622821726.9635148"] 
     # models_names = ["1622962499.238822","1622962499.241493","1622962499.242031"]
     models = [RAgent(input_size=100) for i in range(nagents)]
 
     # for m,n in zip(models,models_names):
     #     m.load_state_dict(T.load("logs/models/"+n+".pth"))
+
     trainers = [Trainer(m,learning_rate=0.001) for m in models ] 
     s = MultiAgentSimulator(
         models,env,trainers,nactions=7,
-        log_message="large area testing and 7 agents",
+        log_message="single agent cloned later",
         visual_activations = True 
     )
     train = 1 
-    s.run(1000,1500,train=train,render_once=10,saveonce=2)
+    s.run(1000,2000,train=train,render_once=10,saveonce=2)
 
     #SINGLE AGENT TESTING REINFORCE
     # s = Simulator(

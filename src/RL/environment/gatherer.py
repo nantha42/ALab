@@ -17,10 +17,12 @@ class Agent:
         self.energy = 100
         self.color = None
         self.dead = False
+        self.processor_locations= []
 
     def reset(self):
         self.x,self.y = 0,0
         self.picked = 0
+        self.processor_locations = []
 
     def act(self,action_vector,g_res,g_stor,g_processor):
         """ Rewarding systems is defined in this function """
@@ -36,6 +38,7 @@ class Agent:
         reward = 0
         cx,cy = self.x, self.y
         self.trail_positions.append([cx,cy])
+        picks = 0
         if len(self.trail_positions) > 20:
             self.trail_positions.pop(0)
         
@@ -56,6 +59,7 @@ class Agent:
                 self.picked += g_res[cx][cy]
                 g_res[cx][cy] = 0
                 reward += 1
+                picks = 1
             elif g_res[cx][cy] == 2:
                 g_res[cx][cy] = 0
                 reward+= 3
@@ -64,12 +68,13 @@ class Agent:
             #construction of storage is possible if agent picked more than 3 resource items
             self.picked-= 4
             g_processor[cx][cy] = 1
-        return reward
+            self.processor_locations.append([cx,cy])
+        return reward,picks
 
 class Gatherer:
     def __init__(self,gr=10,gc=10,vis=7,nagents = 1):
         py.init()
-        self.box_size = 5 
+        self.box_size =  20 
         self.font = py.font.SysFont("times",20)
         self.vissize = vis
 
@@ -167,7 +172,8 @@ class Gatherer:
         states = []
         for i in range(len(self.agents)):
             agent = self.agents[i]
-            r = agent.act(action_vecs[i],self.grid_resource,self.grid_storages,self.grid_stored )
+            r,picks = agent.act(action_vecs[i],self.grid_resource,self.grid_storages,self.grid_stored )
+            self.res -= picks
             rewards.append(r)
         for i in range(len(self.agents)) :
             states.append(self.get_state(i))  # unmatrixed shape of state appened to states
@@ -251,11 +257,11 @@ class Gatherer:
         self.draw_grid()
         # self.draw_trail()
         self.draw_items()
-        self.render_text(f"Collected :{self.collected:3}",(0,0))
-        self.render_text(f"Items     :{self.items:3}",(0,20))
-        self.render_text(f"Steps     :{self.current_step:4}",(250,0))
+        # self.render_text(f"Collected :{self.collected:3}",(0,0))
+        # self.render_text(f"Items     :{self.items:3}",(0,20))
+        self.render_text(f"Steps     :{self.current_step:4}",(10,10))
         # self.render_text(f"Rewards :{self.total_rewards:3}",(250,20))
-        self.render_text(f"Energy :{self.agent_energy:3}",(250,20))
+        # self.render_text(f"Energy :{self.agent_energy:3}",(250,20))
         # self.get_state()
         # agent_colors = [(0,0,200),(200,0,200),(255,0,0),(255,255,0)]
         # for agent,color in zip(self.agents,agent_colors):
@@ -271,12 +277,9 @@ class Gatherer:
         self.timer +=1
         v,h = self.grid_resource.shape
         spawn_limit = 10
-        count = 0
-        for i in range(v):
-            for j in range(h) :
-                if self.grid_resource[i][j] == 1:
-                    count+=1
-        self.res = count
+        processor_locations = []
+        for agent in self.agents:
+            processor_locations.extend(agent.processor_locations)
 
         if self.timer%10 == 0 and self.res < spawn_limit:
             while True: 
@@ -288,25 +291,26 @@ class Gatherer:
                     break
 
         if self.timer%10==0:
-            for i in range(v):
-                for j in range(h):
-                    if self.grid_stored[i][j] == 1:
-                        for agent in self.agents:
-                            px,py = i,j
-                            if agent.picked > 3:
-                                if px-1 > -1 and self.grid_resource[px-1][py] == 0:
-                                    self.grid_resource[px-1][py] = 2 
-                                    agent.picked -= 3
-                                elif px+1 < v and self.grid_resource[px+1][py] == 0:
-                                    self.grid_resource[px+1][py] = 2 
-                                    agent.picked -= 3
-                                elif py -1 > -1 and self.grid_resource[px][py-1] == 0:
-                                    self.grid_resource[px][py-1] = 2 
-                                    agent.picked -= 3
-                                elif py+1 < h and self.grid_resource[px][py+1] == 0:
-                                    self.grid_resource[px][py+1] = 2 
-                                    agent.picked -= 3
-                        
+            # for i in range(v):
+            #     for j in range(h):
+            #         if self.grid_stored[i][j] == 1:
+            for loc in processor_locations:
+                px,py = loc
+                for agent in self.agents:
+                    if agent.picked > 3:
+                        if px-1 > -1 and self.grid_resource[px-1][py] == 0:
+                            self.grid_resource[px-1][py] = 2 
+                            agent.picked -= 3
+                        elif px+1 < v and self.grid_resource[px+1][py] == 0:
+                            self.grid_resource[px+1][py] = 2 
+                            agent.picked -= 3
+                        elif py -1 > -1 and self.grid_resource[px][py-1] == 0:
+                            self.grid_resource[px][py-1] = 2 
+                            agent.picked -= 3
+                        elif py+1 < h and self.grid_resource[px][py+1] == 0:
+                            self.grid_resource[px][py+1] = 2 
+                            agent.picked -= 3
+                
     def event_handler(self,event):
         pass 
     
