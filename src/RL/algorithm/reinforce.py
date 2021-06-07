@@ -77,7 +77,7 @@ class Runner:
             for n,l in self.model._modules.items():
                 l.register_forward_hook(hook_fn)
 
-    def update_weights(self):    
+    def update_weights(self): 
         self.weights = []
         for param in self.model.parameters():
             self.weights.append(T.tensor(param).clone().detach().reshape(-1))
@@ -193,7 +193,6 @@ class Simulator(Runner):
         trect.topleft =  pos 
         surf.blit(text,trect)
         return surf
-
 
     def create_pack(self,arr):
         l = arr.shape[0]
@@ -396,7 +395,6 @@ class Simulator(Runner):
         surf = self.surf_create_graph(self.episode_rewards,"steps",y_value,width=w)
         return surf
     
-
     def draw_neural_image(self):
         panel = py.Surface((500,self.window.get_height()))
         surf_activation,asize = self.surf_neural_activation()
@@ -734,6 +732,41 @@ class MultiAgentSimulator(MultiAgentRunner):
         else:
             return self.neural_weight_surface 
 
+    def surf_create_graph_multi(self,values,x_label,y_value,width,colors):
+        wid,hei = width, 150
+        surf_size = (wid,hei)
+        surf = py.Surface(surf_size)
+        length  = len(values[0])
+        text = self.font.render(x_label,True,(200,200,200))
+        mark_text = self.font.render(y_value,True, (200,200,200)) 
+        maxi = np.max(values)
+        mini = np.min(values)
+        polys = []
+
+        for val,col in zip(values,colors):
+            poly = [] 
+            # print(val)
+            for i in range(0,length, max(1,int(length/wid-10))):
+                v = val[i]
+                x = (i/length)*(wid-10)
+                if (maxi-mini) != 0:
+                    y = (hei - text.get_height()) - ((hei-10)/(maxi -mini))*v 
+                else:
+                    y = (hei -text.get_height())
+                poly.append((x,y))
+            line_poly = list(poly)
+            polys.append(poly)
+            if len(poly)> 1:
+                py.draw.lines(surf,col,False,poly,3)
+
+        trect = text.get_rect()
+        trect.topright =  (text.get_width(),hei-text.get_height()) 
+        surf.blit(text,trect)
+        trect = mark_text.get_rect()
+        trect.topleft = (0,0)
+        surf.blit(mark_text,trect)
+        return surf
+
     def surf_create_graph(self,values,x_label,y_value,width):
         wid,hei = width,150
         surf_size = (wid,hei)
@@ -774,17 +807,29 @@ class MultiAgentSimulator(MultiAgentRunner):
         surf = self.surf_create_graph(self.episode_rewards,"steps",y_value,width=w)
         return surf
 
+    def draw_episode_rewards(self,w=150):
+        # print(np.array(self.episode_rewards).shape)
+        f = 255
+        colors = [ [f,0,f],
+                   [0,f,f],
+                   [f,f,0]
+                ]
+        reshaped = np.array(self.episode_rewards).squeeze(1).T
+        surf = self.surf_create_graph_multi(reshaped,"steps","",width=w,colors =colors)
+        return surf
+ 
     def draw_neural_image(self):
         panel = py.Surface((500,self.window.get_height()))
-        surf_activation,asize = self.surf_neural_activation()
+        # surf_activation,asize = self.surf_neural_activation()
         # surf_weights,wsize = self.surf_neural_weights()
         # surf_hidden,hsize = self.surf_hidden_activation()
-        panel.blit(surf_activation,(0,0))
-        if surf_weights is not None:
-            panel.blit(surf_weights,(asize[0],0))
-        panel.blit(surf_hidden,(0,max(asize[1],wsize[1])))
-        surf_graph_1 = self.draw_episode_reward(w=hsize[0] )
-        panel.blit(surf_graph_1, (0,max(asize[1],wsize[1])+ surf_hidden.get_height()+5) )
+        # panel.blit(surf_activation,(0,0))
+        # if surf_weights is not None:
+        #     panel.blit(surf_weights,(asize[0],0))
+        # panel.blit(surf_hidden,(0,max(asize[1],wsize[1])))
+        surf_graph_1 = self.draw_episode_rewards(w=100)
+        # panel.blit(surf_graph_1, (0,max(asize[1],wsize[1])+ surf_hidden.get_height()+5) )
+        panel.blit(surf_graph_1,(0,0))
         self.window.blit(panel,(500,10))
 
     def event_handler(self):
@@ -817,7 +862,6 @@ class MultiAgentSimulator(MultiAgentRunner):
                 state = self.env.get_state(i)
                 states.append(state)
             
-
             bar = tqdm(range(steps),bar_format='{l_bar}{bar:10}{r_bar}{bar:-10b}')
             trewards = np.zeros((1,len(self.models)))
             for step in bar:
@@ -852,12 +896,11 @@ class MultiAgentSimulator(MultiAgentRunner):
                     for j in range(len(newstates)):
                         self.trainers[j].store_records(rewards[j],log_probs[j])
                             # all_dead = False
-                
                 # print("Logs probs",len(self.trainers[0].log_probs),len(self.trainers[1].log_probs))
                 trewards += np.array(rewards)
                 states = newstates
-                trewards += rewards
-                self.episode_rewards.append(trewards)
+                # trewards += rewards
+                self.episode_rewards.append(trewards.tolist())
 
                 if self.visual_activations :
                     self.neural_image_values = []
@@ -875,8 +918,11 @@ class MultiAgentSimulator(MultiAgentRunner):
                     #     self.weight_change = True
                     # if type(self.model.hidden_vectors) != type(None):
                     #     self.hidden_state = self.model.hidden_vectors
-                
-                bar.set_description(f"Episode: {_:4} Rewards : {trewards[0][0]},{trewards[0,1]} ")
+                reward_string = "" 
+                for uu in range(len(trewards[0])):
+                    reward_string += str(trewards[0][uu])
+                    reward_string += " "
+                bar.set_description(f"Episode: {_:4} Rewards : {reward_string} ")
                 # print("Logs probs 1",len(self.trainers[0].log_probs),len(self.trainers[1].log_probs))
                 if train:
                     self.env.step() 

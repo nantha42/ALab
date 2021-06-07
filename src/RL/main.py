@@ -120,23 +120,22 @@ if __name__ == '__main__':
     # runner.run(1000,5000,train=False,render_once=10,saveonce=7)
 
     # MULTI AGENTS TESTING
-    env = Gatherer(gr = 10,gc = 10,vis = 5,nagents=2)
-    model = RAgent(input_size = 100)
-    model1 = RAgent(input_size = 100)
-    model2 = RAgent(input_size = 100)
-
-    trainer = Trainer(model, learning_rate=0.001)
-    trainer1 = Trainer(model1, learning_rate=0.001)
-    trainer2 = Trainer(model2, learning_rate=0.001)
-    env.enable_draw = False
- 
+    nagents = 3
+    env = Gatherer(gr = 20,gc = 20,vis = 5,nagents=nagents)
+    models_names = ["1622821726.961184","1622821726.963818","1622821726.9635148"] 
+    # models_names = ["1622962499.238822","1622962499.241493","1622962499.242031"]
+    models = [RAgent(input_size=100) for i in range(nagents)]
+        
+    # for m,n in zip(models,models_names):
+    #     m.load_state_dict(T.load("logs/models/"+n+".pth"))
+    trainers = [Trainer(m,learning_rate=0.001) for m in models ] 
     s = MultiAgentSimulator(
-        [model,model1,model2],env,[trainer,trainer1,trainer2],nactions=7,
+        models,env,trainers,nactions=7,
         log_message="multi agents saving feature testing",
-        visual_activations = False 
+        visual_activations = True 
     )
-    print(s.visual_activations)
-    s.run(1000,500,train=True,render_once=1,saveonce=1)
+    train = False 
+    s.run(1000,500,train=train,render_once=1,saveonce=1)
 
     #SINGLE AGENT TESTING REINFORCE
     # s = Simulator(
@@ -149,7 +148,7 @@ if __name__ == '__main__':
     # s.run(1000,500,train=True,render_once=1,saveonce=1)
 
     #PPO TESTING
-    env = PowerGame(gr=10,gc=10,vis=5)
+    # env = PowerGame(gr=10,gc=10,vis=5)
     # model = AgentCA(input_size=25) 
     # # model.load_state_dict(T.load("logs/models/1622623059.6184058.pth"))
     # # model = Agent(input_size=49) 
