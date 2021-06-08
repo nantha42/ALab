@@ -644,27 +644,40 @@ class MultiAgentSimulator(MultiAgentRunner):
 
     def surf_neural_activation(self):
         """ Returns a Drawn surface for neural activation"""
-        assert type(self.neural_image_values) == type(np.array([])), "neural_image_values should be in numpy array"
-        points = []
-        varr = self.neural_image_values
- 
-        varr = varr.reshape(-1)
-        l = int(np.sqrt(varr.shape[0]))
-        varr = varr[-l*l:].reshape((l,l))
-        
-        sz = 10
-        activ_surf = py.Surface((l*sz+20,l*sz+20))
-        maxi = np.max(varr)
-        mini = np.min(varr)
-        
-        poslimit,neglimit = self.calculate_limits(maxi,mini)
-        for r in range(l):
-            for c in range(l):
-                av = varr[r][c]
-                cr,cg = self.calculate_color(av,maxi,mini,poslimit,neglimit)
-                colorvalue = (abs(cr),abs(cg),max(abs(cr),abs(cg)))
-                py.draw.rect(activ_surf,colorvalue,(10+c*sz,10+r*sz,sz,sz))
-        return activ_surf,(activ_surf.get_width(),activ_surf.get_height())
+        assert type(self.neural_image_values) == type([]), "neural_image_values should be in list"
+        act_surfaces = []
+        for neural_image in self.neural_image_values:
+            varr = neural_image 
+            varr = varr.reshape(-1)
+            l = int(np.sqrt(varr.shape[0]))
+            varr = varr[-l*l:].reshape((l,l))
+            sz = 4 
+            activ_surf = py.Surface((l*sz+20,l*sz+20))
+            maxi = np.max(varr)
+            mini = np.min(varr)
+            poslimit,neglimit = self.calculate_limits(maxi,mini)
+            for r in range(l):
+                for c in range(l):
+                    av = varr[r][c]
+                    cr,cg = self.calculate_color(av,maxi,mini,poslimit,neglimit)
+                    colorvalue = (abs(cr),abs(cg),max(abs(cr),abs(cg)))
+                    py.draw.rect(activ_surf,colorvalue,(10+c*sz,10+r*sz,sz,sz))
+            act_surfaces.append(activ_surf)
+        n_surfaces = len(act_surfaces)
+        w,h = act_surfaces[0].get_width(), act_surfaces[0].get_height()
+        panel_width = 250
+        rows_count = n_surfaces*(w+5)//panel_width
+        if rows_count==0: rows_count = 1
+        panel = py.Surface(((w+5)*n_surfaces,(h+5)*rows_count))
+        r,c = 0,0
+        for i in range(len(act_surfaces)):
+            panel.blit(act_surfaces[i],(r,c))
+            r += w+5
+            if r >= panel_width:
+                r = 0
+                c += (h+5)
+        return panel,(panel.get_width(),panel.get_height())
+        # return activ_surf,(activ_surf.get_width(),activ_surf.get_height())
     
     def surf_hidden_activation(self):
         if type(self.hidden_state) != type(None):
@@ -807,29 +820,28 @@ class MultiAgentSimulator(MultiAgentRunner):
         surf = self.surf_create_graph(self.episode_rewards,"steps",y_value,width=w)
         return surf
 
-    def draw_episode_rewards(self,w=150):
+    def draw_episode_rewards(self,w=250):
         # print(np.array(self.episode_rewards).shape)
         f = 255
-        colors = [ [f,0,f],
-                   [0,f,f],
-                   [f,f,0]
-                ]
+        colors = []
+        for agent in self.env.agents:
+            colors.append(agent.color)
         reshaped = np.array(self.episode_rewards).squeeze(1).T
         surf = self.surf_create_graph_multi(reshaped,"steps","",width=w,colors =colors)
         return surf
  
     def draw_neural_image(self):
         panel = py.Surface((500,self.window.get_height()))
-        # surf_activation,asize = self.surf_neural_activation()
+        surf_activation,asize = self.surf_neural_activation()
         # surf_weights,wsize = self.surf_neural_weights()
         # surf_hidden,hsize = self.surf_hidden_activation()
-        # panel.blit(surf_activation,(0,0))
+        panel.blit(surf_activation,(0,0))
         # if surf_weights is not None:
         #     panel.blit(surf_weights,(asize[0],0))
         # panel.blit(surf_hidden,(0,max(asize[1],wsize[1])))
-        surf_graph_1 = self.draw_episode_rewards(w=100)
+        surf_graph_1 = self.draw_episode_rewards(w=250)
         # panel.blit(surf_graph_1, (0,max(asize[1],wsize[1])+ surf_hidden.get_height()+5) )
-        panel.blit(surf_graph_1,(0,0))
+        panel.blit(surf_graph_1,(0,asize[1] + 10))
         self.window.blit(panel,(self.env.win.get_width()+10,10))
 
     def event_handler(self):
@@ -914,7 +926,6 @@ class MultiAgentSimulator(MultiAgentRunner):
                         activations = T.cat(model.activations,dim=0).reshape(-1)
                         self.neural_image_values.append(activations.detach().numpy())
                         
-                    
                     # u = T.cat(self.activations,dim=0).reshape(-1)
                     # self.neural_image_values = u.detach().numpy()
                     # self.activations = []

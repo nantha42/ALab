@@ -1,4 +1,3 @@
-
 from numpy.core.overrides import verify_matching_signatures
 import torch as T
 import torch.nn as nn
@@ -48,6 +47,7 @@ class RAgent(nn.Module):
         self.hidden_states = [self.hidden]
 
     def forward(self, x):
+        self.activations = []
         x = x.reshape(-1, 1, self.input_size)
         x = self.pre(x)
         x, self.hidden = self.gru(x, self.hidden)
@@ -92,9 +92,6 @@ class Agent(nn.Module):
     def forward(self, x):
         o = self.layers(x)
         return o
- 
-
-
 
 # runner = Runner(
 #         agent,env,trainer,
@@ -120,24 +117,25 @@ if __name__ == '__main__':
     # runner.run(1000,5000,train=False,render_once=10,saveonce=7)
 
     # MULTI AGENTS TESTING
-    nagents =  1 
+    nagents =  3 
     env = Gatherer(gr = 20,gc = 20,vis = 5,nagents=nagents)
     # models_names = ["1622821726.961184","1622821726.963818","1622821726.9635148"] 
     models_names = ["1622821726.963818","1622821726.9635148"] 
+    models_names = ["1623134467.521378","1623134467.5188742"] 
+    models_names = ["1623135443.940188","1623135443.940188","1623135443.9425511","1623135443.9425511","1623135443.940188","1623135443.940188","1623135443.9425511","1623135443.9425511"]
     # models_names = ["1622962499.238822","1622962499.241493","1622962499.242031"]
     models = [RAgent(input_size=100) for i in range(nagents)]
-
-    # for m,n in zip(models,models_names):
-    #     m.load_state_dict(T.load("logs/models/"+n+".pth"))
+    for m,n in zip(models,models_names):
+        m.load_state_dict(T.load("logs/models/"+n+".pth"))
 
     trainers = [Trainer(m,learning_rate=0.001) for m in models ] 
     s = MultiAgentSimulator(
-        models,env,trainers,nactions=7,
+        models,env,trainers,nactions=6,
         log_message="single agent cloned later",
         visual_activations = True 
     )
-    train = 1 
-    s.run(1000,2000,train=train,render_once=10,saveonce=2)
+    train = 0 
+    s.run(1000,1000,train=train,render_once=1,saveonce=2)
 
     #SINGLE AGENT TESTING REINFORCE
     # s = Simulator(
