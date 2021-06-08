@@ -769,9 +769,21 @@ class MultiAgentSimulator(MultiAgentRunner):
                 poly.append((x,y))
             line_poly = list(poly)
             polys.append(poly)
-            if len(poly)> 1:
-                py.draw.lines(surf,col,False,poly,3)
+            # if len(poly)> 1:
+            #     py.draw.lines(surf,col,False,poly,3)
 
+        polys.sort(key= lambda x:(x[-1]))
+        
+        for poly,col in zip(polys,colors):
+            poly.append((poly[-1][0],poly[0][1]))
+            if len(poly)> 2:
+                r,g,b = col
+                dv = 50
+                p_col = [r - min(dv,r),g-min(dv,g),b-min(dv,b)]
+                py.draw.polygon(surf,p_col,poly,0)
+            if len(poly) > 1:
+                py.draw.lines(surf,col,False,poly,3)
+ 
         trect = text.get_rect()
         trect.topright =  (text.get_width(),hei-text.get_height()) 
         surf.blit(text,trect)
@@ -822,12 +834,13 @@ class MultiAgentSimulator(MultiAgentRunner):
 
     def draw_episode_rewards(self,w=250):
         # print(np.array(self.episode_rewards).shape)
+        y_value = "R: "+ str(np.max(self.episode_rewards[-1]))
         f = 255
         colors = []
         for agent in self.env.agents:
             colors.append(agent.color)
         reshaped = np.array(self.episode_rewards).squeeze(1).T
-        surf = self.surf_create_graph_multi(reshaped,"steps","",width=w,colors =colors)
+        surf = self.surf_create_graph_multi(reshaped,"steps",y_value,width=w,colors =colors)
         return surf
  
     def draw_neural_image(self):
@@ -839,7 +852,7 @@ class MultiAgentSimulator(MultiAgentRunner):
         # if surf_weights is not None:
         #     panel.blit(surf_weights,(asize[0],0))
         # panel.blit(surf_hidden,(0,max(asize[1],wsize[1])))
-        surf_graph_1 = self.draw_episode_rewards(w=250)
+        surf_graph_1 = self.draw_episode_rewards(w=(self.window.get_width() - self.env.win.get_width()-10))
         # panel.blit(surf_graph_1, (0,max(asize[1],wsize[1])+ surf_hidden.get_height()+5) )
         panel.blit(surf_graph_1,(0,asize[1] + 10))
         self.window.blit(panel,(self.env.win.get_width()+10,10))
