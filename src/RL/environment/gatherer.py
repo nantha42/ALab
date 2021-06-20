@@ -209,9 +209,44 @@ class Gatherer:
         surf = py.Surface((bs, bs), py.SRCALPHA)
         surf = surf.convert_alpha()
         py.draw.rect(surf, color, surf.get_rect())
-        self.win.blit(surf, (sx+j*bs, sy+i*bs, bs, bs),
-                      special_flags=py.BLEND_RGBA_ADD)
+        self.win.blit(surf, (sx+j*bs, sy+i*bs, bs, bs), special_flags=py.BLEND_RGBA_ADD)
 #        py.draw.rect(self.win,py.Color(color),(sx+j*bs,sy+i*bs,bs,bs))
+
+    def draw_triangle(self,i,j,color):
+        v, h = self.grid_resource.shape
+        a = np.array([[0.5,0],[0,1],[1,1],[0.5,0]])
+        a = a*self.box_size
+        r = 1
+        bs = self.box_size  # box size
+        sx, sy = self.start_position
+        surf = py.Surface((bs, bs), py.SRCALPHA)
+        surf = surf.convert_alpha()
+        py.draw.polygon(surf,color,a.tolist(),0)
+        self.win.blit(surf, (sx+j*bs, sy+i*bs, bs, bs), special_flags = py.BLEND_RGBA_ADD)
+
+    def draw_circle(self,i,j,color):
+        v, h = self.grid_resource.shape
+        r = 1
+        bs = self.box_size  # box size
+        sx, sy = self.start_position
+        surf = py.Surface((bs, bs), py.SRCALPHA)
+        surf = surf.convert_alpha()
+        py.draw.circle(surf,color,(self.box_size/2,self.box_size/2),self.box_size/2,self.box_size//2)
+        self.win.blit(surf, (sx+j*bs, sy+i*bs, bs, bs), special_flags = py.BLEND_RGBA_ADD)
+
+
+
+
+    def draw_polygon(self,i,j,color,points):
+        v, h = self.grid_resource.shape
+        r = 1
+        bs = self.box_size  # box size
+        sx, sy = self.start_position
+        surf = py.Surface((bs, bs), py.SRCALPHA)
+        surf = surf.convert_alpha()
+        # py.draw.rect(surf, color, surf.get_rect())
+        py.draw.polygon(surf,color,points,0)
+        self.win.blit(surf, (sx+j*bs, sy+i*bs, bs, bs), special_flags = py.BLEND_RGBA_ADD)
 
     def draw_grid(self):
         # horizontal line
@@ -238,17 +273,25 @@ class Gatherer:
                     if 0 <= i+ax-vv//2 < lx and 0 <= j+ay-vh//2 < ly:
                         self.draw_box(i+ax-vv//2, j+ay-vh//2, [50, 50, 50])
 
+
     def draw_items(self):
         v, h = self.grid_resource.shape
         # v=20 h = 30
         for i in range(v):
             for j in range(h):
+                # if self.grid_resource[i][j] == 1:
+                #     self.draw_box(i, j, (0, 255, 0))
+                # elif self.grid_resource[i][j] == 2:
+                #     self.draw_box(i, j, (0, 255, 255))
+                # if self.grid_stored[i][j] > 0:
+                #     self.draw_box(i, j, (255, 0, 0))
                 if self.grid_resource[i][j] == 1:
-                    self.draw_box(i, j, (0, 255, 0))
+                    self.draw_triangle(i,j,(0,255,0))
                 elif self.grid_resource[i][j] == 2:
-                    self.draw_box(i, j, (0, 255, 255))
+                    self.draw_triangle(i,j,(0,255,255))
                 if self.grid_stored[i][j] > 0:
-                    self.draw_box(i, j, (255, 0, 0))
+                    self.draw_circle(i,j,(255,0,0))
+
 
     def draw_trail(self):
         for agent in self.agents:
