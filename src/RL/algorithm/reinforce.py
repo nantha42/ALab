@@ -652,7 +652,7 @@ class MultiAgentSimulator(MultiAgentRunner):
             l = int(np.sqrt(varr.shape[0]))
             varr = varr[-l*l:].reshape((l,l))
             sz = 4 
-            activ_surf = py.Surface((l*sz+20,l*sz+20))
+            activ_surf = py.Surface((l*sz+5,l*sz+5))
             maxi = np.max(varr)
             mini = np.min(varr)
             poslimit,neglimit = self.calculate_limits(maxi,mini)
@@ -663,12 +663,20 @@ class MultiAgentSimulator(MultiAgentRunner):
                     colorvalue = (abs(cr),abs(cg),max(abs(cr),abs(cg)))
                     py.draw.rect(activ_surf,colorvalue,(10+c*sz,10+r*sz,sz,sz))
             act_surfaces.append(activ_surf)
+
+        # n_surfaces = len(act_surfaces)
+        # w,h = act_surfaces[0].get_width(), act_surfaces[0].get_height()
+        # panel_width = 250
+        # rows_count = n_surfaces*(w+5)//panel_width
+        # if rows_count==0: rows_count = 1
+
         n_surfaces = len(act_surfaces)
-        w,h = act_surfaces[0].get_width(), act_surfaces[0].get_height()
+        w,h = act_surfaces[0].get_width(),act_surfaces[0].get_height()
         panel_width = 250
-        rows_count = n_surfaces*(w+5)//panel_width
+        rows_count = (w+5)*n_surfaces//panel_width
         if rows_count==0: rows_count = 1
-        panel = py.Surface(((w+5)*n_surfaces,(h+5)*rows_count))
+        col_count = (w+5)*n_surfaces//rows_count
+        panel = py.Surface(((w+5)*(col_count),(h+5)*rows_count))
         r,c = 0,0
         for i in range(len(act_surfaces)):
             panel.blit(act_surfaces[i],(r,c))
@@ -687,7 +695,6 @@ class MultiAgentSimulator(MultiAgentRunner):
             sz = 2 
             state_surface= py.Surface((c*sz,r*sz))
             swidth = state_surface.get_width()
-
             poslimit,neglimit = self.calculate_limits(maxi,mini)
             for i in range(c):
                 for j in range(r):
@@ -695,17 +702,16 @@ class MultiAgentSimulator(MultiAgentRunner):
                     cr,cg = self.calculate_color(av,maxi,mini,poslimit,neglimit)
                     colorvalue = (abs(cr),abs(cg),max(abs(cr),abs(cg)))
                     py.draw.rect(state_surface,colorvalue,(i*sz,j*sz,sz,sz))
-
             self.hidden_state_surfaces.append(state_surface)
             if len(self.hidden_state_surfaces) > 330/swidth-3*swidth:
                 self.hidden_state_surfaces = self.hidden_state_surfaces[1:]
-
             l = len(self.hidden_state_surfaces)
             surf_w = self.hidden_state_surfaces[0].get_width()
             surf_h = self.hidden_state_surfaces[0].get_height()
             full_surf = py.Surface((20+l*surf_w,20+surf_h))
             for i in range(l):
                 full_surf.blit( self.hidden_state_surfaces[i], (10+i*surf_w,10))
+            
             return full_surf,(full_surf.get_width(),full_surf.get_height())
                 
     def surf_neural_weights(self):
@@ -713,7 +719,6 @@ class MultiAgentSimulator(MultiAgentRunner):
             self.weight_change = False
             if self.neural_layout == None:
                 self.neural_layout,self.neural_layout_size = self.create_pack(self.neural_weights)
-            
             pix_size , gaps = self.neural_layout_size 
             gap_size = 1
             sz = 1
@@ -821,7 +826,6 @@ class MultiAgentSimulator(MultiAgentRunner):
         trect = text.get_rect()
         trect.topright =  (text.get_width(),hei-text.get_height()) 
         surf.blit(text,trect)
-        
         trect = mark_text.get_rect()
         trect.topleft = (0,0)
         surf.blit(mark_text,trect)
@@ -854,6 +858,7 @@ class MultiAgentSimulator(MultiAgentRunner):
         # panel.blit(surf_hidden,(0,max(asize[1],wsize[1])))
         surf_graph_1 = self.draw_episode_rewards(w=(self.window.get_width() - self.env.win.get_width()-10))
         # panel.blit(surf_graph_1, (0,max(asize[1],wsize[1])+ surf_hidden.get_height()+5) )
+        print("size" ,asize[1])
         panel.blit(surf_graph_1,(0,asize[1] + 10))
         self.window.blit(panel,(self.env.win.get_width()+10,10))
 
