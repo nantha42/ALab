@@ -96,17 +96,30 @@ class StateAgent(Agent):
         if len(self.trail_positions) > 20:
             self.trail_positions.pop(0)
 
-        if left and self.y > 0:
-            self.y -= 1
+        if left:
+            if self.y>0:
+                self.y -= 1
+            else:         
+                self.y = h-1;
 
-        elif right and self.y < h-1:
-            self.y += 1
+
+        elif right: 
+            if self.y< h-1:
+                self.y += 1
+            else:
+                self.y = 0
 
         elif up and self.x > 0:
-            self.x -= 1
+            if self.x > 0:
+                self.x -= 1
+            else:
+                self.x = v-1
 
         elif down and self.x < v-1:
-            self.x += 1
+            if self.x < v-1:
+                self.x += 1
+            else:
+                self.x = 0
 
         elif pick:
             if g_res[cx][cy] == 1:
@@ -434,8 +447,9 @@ class GathererState(Gatherer):
         The state of the agent need to be altered and stored in a list
         and passed to the multienvironmentsimulator 
     """
-    def __init__(self,gr=10,gc=10,vis=7,nagents=1,boxsize=2):
+    def __init__(self,gr=10,gc=10,vis=7,nagents=1,boxsize=2,spawn_limit=10):
         super().__init__(gr,gc,vis,nagents)
+        self.spawn_limit = spawn_limit
         self.font = py.font.SysFont("times", boxsize)
         self.box_size = boxsize
         self.start_position = [10, 10]
@@ -537,4 +551,43 @@ class GathererState(Gatherer):
             self.draw_box(agent.x, agent.y, agent.color)
         # self.draw_box(self.agent_pos[0],self.agent_pos[1],(0,0,200))
         self.draw_visibility()
+
+    def spawn_resources(self):
+        # initializing foods
+        self.timer += 1
+        v, h = self.grid_resource.shape
+        processor_locations = []
+        for agent in self.agents:
+            processor_locations.extend(agent.processor_locations)
+
+        if self.timer % 2 == 0 and self.res < self.spawn_limit:
+            while True:
+                r = np.random.randint(0, v)
+                c = np.random.randint(0, h)
+                if self.grid_resource[r][c] == 0:
+                    self.grid_resource[r][c] = 1
+                    self.res += 1
+                    break
+
+        if self.timer % 10 == 0:
+            # for i in range(v):
+            #     for j in range(h):
+            #         if self.grid_stored[i][j] == 1:
+            for loc in processor_locations:
+                px, py = loc
+                for agent in self.agents:
+                    req = 3
+                    if agent.picked > req:
+                        if px-1 > -1 and self.grid_resource[px-1][py] == 0:
+                            self.grid_resource[px-1][py] = 2
+                            agent.picked -= req
+                        elif px+1 < v and self.grid_resource[px+1][py] == 0:
+                            self.grid_resource[px+1][py] = 2
+                            agent.picked -= req
+                        elif py - 1 > -1 and self.grid_resource[px][py-1] == 0:
+                            self.grid_resource[px][py-1] = 2
+                            agent.picked -= req
+                        elif py+1 < h and self.grid_resource[px][py+1] == 0:
+                            self.grid_resource[px][py+1] = 2
+                            agent.picked -= req
 

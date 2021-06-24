@@ -552,19 +552,7 @@ class MultiAgentSimulator(MultiAgentRunner):
                          log_message=log_message, visual_activations=visual_activations)
 
         py.init()
-        extra_width = 300
-        env_w = environment.win.get_width()
-        env_h = environment.win.get_height()
-
-        if visual_activations:
-            self.w = 50 + env_w + extra_width
-        else:
-            self.w = 50 + env_w
-
-        self.h = 50 + env_h
-        self.font = py.font.SysFont("times", 10)
-        self.window = py.display.set_mode((self.w, self.h), py.DOUBLEBUF, 32)
-        self.window.set_alpha(128)
+        self.initiate_window(environment,visual_activations)
         self.clock = py.time.Clock()
         self.enable_draw = True
 
@@ -580,6 +568,21 @@ class MultiAgentSimulator(MultiAgentRunner):
         self.neural_weight_surface = None
         self.weight_change = False
 
+    def initiate_window(self,environment,visual_activations):
+        extra_width = 300
+        env_w = environment.win.get_width()
+        env_h = environment.win.get_height()
+
+        if visual_activations:
+            self.w = 50 + env_w + extra_width
+        else:
+            self.w = 50 + env_w
+
+        self.h = 50 + env_h
+        self.font = py.font.SysFont("times", 10)
+        self.window = py.display.set_mode((self.w, self.h), py.DOUBLEBUF, 32)
+        self.window.set_alpha(128)
+ 
     def render_text(self, surf, text, pos):
         text = self.font.render(text, True, (200, 200, 200))
         trect = text.get_rect()
@@ -1052,6 +1055,9 @@ class Container:
             s,ags = self.env.get_state(i).reshape(-1), self.env.get_agent_state(i).reshape(-1)
             self.states.append(s)
             self.agent_states.append(ags)
+        
+        for model in self.models:
+            model.reset()
 
         self.trewards = np.zeros((1, len(self.models)))
         self.episode_rewards = []
@@ -1096,13 +1102,44 @@ class Container:
 
 class MultiEnvironmentSimulator(MultiAgentSimulator):
     def __init__(self, models, environments, nactions=6, log_message=None, visual_activations=False):
-        super().__init__(models, environments[0], None, nactions=nactions,
+        super().__init__(models, environments, None, nactions=nactions,
                          log_message=log_message, visual_activations=visual_activations)
-        py.init()
         nenvs = len(environments)
         self.containers = [Container(x, models) for x in environments]
         self.environments = environments  # StateGatherers with different states
 
+    def initiate_window(self,environments,visual_activations):
+        extra_width = 300
+        sw,sy = 0 ,0
+        max_h = []
+        for env in environments:
+            max_h.append(env.win.get_height())
+            if sw + env.win.get_width() > 250:
+                sy += max(max_h) + 10
+                max_h = []
+
+        env_w = 250 
+        env_h = max(sy,max(max_h))
+
+        if visual_activations:
+            self.w = 50 + env_w + extra_width
+        else:
+            self.w = 50 + env_w
+
+        self.h = 50 + env_h
+        self.font = py.font.SysFont("times", 10)
+        self.window = py.display.set_mode((self.w, self.h), py.DOUBLEBUF, 32)
+        self.window.set_alpha(128)
+ 
+    def event_handler(self):
+        for event in py.event.get():
+            if event.type == py.QUIT:
+                py.quit()
+                exit()
+            
+            if event.type == py.MOUSEBUTTONDOWN:
+                pass
+                
     def run(self, episodes, steps, train=False, render_once=1e10, saveonce=10):
         if train:
             assert self.recorders[0].log_message is not None, "log_message is necessary during training, Instantiate Runner with log message"
@@ -1113,39 +1150,36 @@ class MultiEnvironmentSimulator(MultiAgentSimulator):
         for _ in range(episodes):
             for c in self.containers:
                 c.reset()
-            # for _ in tqdm_steps:
-            #     for c in self.containers:
-            #         c.step()
-            #         py.display.update()
-
             containers_trainings = [] 
             for c in self.containers:
                 tqdm_steps = tqdm(range(steps), bar_format='{l_bar}{bar:10}{r_bar}{bar:-10b}')
                 frames = []
-                for _ in tqdm_steps:
+
+                for step in tqdm_steps:
                     c.step()
+                    self.event_handler()
                     # self.window.blit(c.env.win, p)
                     frames.append(c.env.win.copy())
                     tqdm_steps.set_description(f"Episode: {_:4}")
                 containers_trainings.append(frames)
                 # tqdm_steps.set_description(f"Episode: {_:4} Rewards : {trewards}")
                 c.update()
+
+            ######### Visualizing ########### 
             initial = [10,10]
             positions = [initial]
             for i in range(len(containers_trainings)-1):
                 w,h = containers_trainings[i][0].get_width(),containers_trainings[i][0].get_height()
                 lx,ly = positions[-1]
-                if lx + w > 150:
+                if lx + w > 250:
                     positions.append([10,ly+h])
                 else: 
                     positions.append([lx+w+10,ly])
-            print(positions)
 
-
-            for i in range(steps):
+            render = tqdm(range(steps),bar_format='{l_bar}{bar:10}{r_bar}{bar:-10b}')
+            for i in render:
                 for cont,pos in zip(containers_trainings,positions):
                     self.window.blit(cont[i],pos)
+                render.set_description(f"Rendering :{i:4} ")
                 py.display.update()
-                # for c, p in zip(self.containers, place_pos):
-                #     c.update()
                 
