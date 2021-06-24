@@ -5,7 +5,6 @@ from icecream import ic
 
 ENABLE_DRAW = True
 
-# TODO environment act and agent act how to implement this
 
 
 class Agent:
@@ -73,7 +72,65 @@ class Agent:
             self.processor_locations.append([cx, cy])
         return reward, picks
 
+        
+class StateAgent(Agent):
+    #Inheritance in Action
+    def __init__(self):
+        super().__init__()
+        self.collecteds = 0
+        self.items = 0
+        self.processed_items = 0
+        self.rewards = 0
+    
+    def act(self,action_vector, g_res, g_processor):
+        left, up, right, down = action_vector[:4]
+        v, h = g_res.shape
+        pick = action_vector[4]
+        # drop = action_vector[5]
+        build_proc = action_vector[5]
+        max_amount = 20
+        reward = 0
+        cx, cy = self.x, self.y
+        self.trail_positions.append([cx, cy])
+        picks = 0
+        if len(self.trail_positions) > 20:
+            self.trail_positions.pop(0)
 
+        if left and self.y > 0:
+            self.y -= 1
+
+        elif right and self.y < h-1:
+            self.y += 1
+
+        elif up and self.x > 0:
+            self.x -= 1
+
+        elif down and self.x < v-1:
+            self.x += 1
+
+        elif pick:
+            if g_res[cx][cy] == 1:
+                self.picked += g_res[cx][cy]
+                self.collecteds+=1 
+                g_res[cx][cy] = 0
+                reward += 1
+                picks = 1
+            elif g_res[cx][cy] == 2:
+                self.items += 1
+                g_res[cx][cy] = 0
+                reward += 3
+
+        elif build_proc > 0 and g_processor[cx][cy] == 0 and self.picked > 4:
+            # construction of storage is possible if agent picked more than 3 resource items
+            self.picked -= 4
+            g_processor[cx][cy] = 1
+            reward += 1
+            self.processor_locations.append([cx, cy])
+        self.rewards += reward
+        return reward, picks
+
+
+    
 class Gatherer:
     def __init__(self, gr=10, gc=10, vis=7, nagents=1):
         py.init()
@@ -129,7 +186,7 @@ class Gatherer:
         trect = text.get_rect()
         trect.topleft = pos
         self.win.blit(text, trect)
-
+    
     def get_state(self, id):
         agent = self.agents[id]
         x, y = agent.x, agent.y
@@ -168,6 +225,7 @@ class Gatherer:
         return np.concatenate([
             g_res, g_stor_tanks, g_stored, g_agents
         ], axis=0).reshape(-1)
+
 
     def act(self, action_vecs):
         """action_vec should is 2 dimension always"""
@@ -233,8 +291,6 @@ class Gatherer:
         surf = surf.convert_alpha()
         py.draw.circle(surf,color,(self.box_size/2,self.box_size/2),self.box_size/2,self.box_size//2)
         self.win.blit(surf, (sx+j*bs, sy+i*bs, bs, bs), special_flags = py.BLEND_RGBA_ADD)
-
-
 
 
     def draw_polygon(self,i,j,color,points):
@@ -318,7 +374,6 @@ class Gatherer:
             self.draw_box(agent.x, agent.y, agent.color)
         # self.draw_box(self.agent_pos[0],self.agent_pos[1],(0,0,200))
         self.draw_visibility()
-        py.display.update()
 
     def spawn_resources(self):
         # initializing foods
@@ -372,3 +427,114 @@ class Gatherer:
         self.current_step += 1
         if self.enable_draw:
             self.draw()
+
+class GathererState(Gatherer):
+    """ Uses the agent of StateAgent class. StateAgent class returns the 
+        collecteds,items and rewards totally obtained
+        The state of the agent need to be altered and stored in a list
+        and passed to the multienvironmentsimulator 
+    """
+    def __init__(self,gr=10,gc=10,vis=7,nagents=1,boxsize=2):
+        super().__init__(gr,gc,vis,nagents)
+        self.font = py.font.SysFont("times", boxsize)
+        self.box_size = boxsize
+        self.start_position = [10, 10]
+        self.w = boxsize + gc*self.box_size + 10
+        self.h = boxsize + gr*self.box_size + 10
+        self.win = py.Surface((self.w, self.h), py.DOUBLEBUF, 32)
+        print("SURFACE SHAPES :",self.w,self.h)
+
+        self.agents = []
+        all_colors = [[255, 255, 0], [28, 230, 255], [255, 52, 255], [255, 74, 70], [0, 137, 65], [0, 111, 166], [163, 0, 89], [255, 219, 229], [122, 73, 0], [0, 0, 166], [99, 255, 172], [183, 151, 98], [0, 77, 67], [143, 176, 255], [153, 125, 135], [90, 0, 7], [128, 150, 147], [254, 255, 230], [27, 68, 0], [79, 198, 1], [59, 93, 255], [74, 59, 83], [255, 47, 128], [97, 97, 90], [186, 9, 0], [107, 121, 0], [0, 194, 160], [255, 170, 146], [255, 144, 201], [185, 3, 170], [209, 97, 0], [
+            221, 239, 255], [0, 0, 53], [123, 79, 75], [161, 194, 153], [48, 0, 24], [10, 166, 216], [1, 51, 73], [0, 132, 111], [55, 33, 1], [255, 181, 0], [194, 255, 237], [160, 121, 191], [204, 7, 68], [192, 185, 178], [194, 255, 153], [0, 30, 9], [0, 72, 156], [111, 0, 98], [12, 189, 102], [238, 195, 255], [69, 109, 117], [183, 123, 104], [122, 135, 161], [120, 141, 102], [136, 85, 120], [250, 208, 159], [255, 138, 154], [209, 87, 160], [190, 196, 89], [69, 102, 72], [0, 134, 237], [136, 111, 76]]
+        for a in range(nagents):
+            self.agents.append(StateAgent())
+            agent = self.agents[a]
+            agent.color = all_colors[a]
+            self.grid_agents[a][agent.x][agent.y]
+
+    def act(self,action_vecs):
+        """ The action_vec should is 2 dimension always.
+            Returns states -->[sourrounding info, agent collections], rewards"""
+        rewards = []
+        states = []
+        for i in range(len(self.agents)):
+            agent = self.agents[i]
+            r, picks = agent.act(
+                action_vecs[i], self.grid_resource, self.grid_stored)
+            self.res -= picks
+            rewards.append(r)
+        for i in range(len(self.agents)):
+            # unmatrixed shape of state appened to states
+            # returning the additional information about the state of the agent
+            states.append([self.get_state(i),self.get_agent_state(i) ])         
+        states = np.array(states)
+        return states, rewards
+
+    def get_state(self, id):
+        """ Returns only the surrounding information 
+        in a matrix"""
+        agent = self.agents[id]
+        x, y = agent.x, agent.y
+        g_res = np.ones((1, self.vissize, self.vissize))*- \
+            1  # TODO try with np.zeros
+        g_stor_tanks = np.ones((1, self.vissize, self.vissize))*-1
+        g_stored = np.ones((1, self.vissize, self.vissize))*-1
+        g_agents = np.ones((1, self.vissize, self.vissize))*-1
+        v, h = self.grid_resource.shape
+
+        r = self.vissize - 5
+        s = -2 - r//2
+        r -= r//2
+        e = 3 + r
+
+        for i in range(s, e):
+            for j in range(s, e):
+                if(0 <= x+i < v and 0 <= y+j < h):
+                    g_res[0][i-s, j-s] = self.grid_resource[x+i, y+j]
+                    g_stor_tanks[0][i-s, j-s] = self.grid_storages[x+i, y+j]
+                    g_stored[0][i-s, j-s] = self.grid_stored[x+i, y+j]
+
+        # for i in range(s,e):
+        #     for j in range(s,e):
+        #         if( 0 <= x+i < v and 0 <= y+j < h):
+
+        for a in self.agents:
+            if a != agent:
+                ox, oy = a.x, a.y
+                xx, yy = agent.x, agent.y
+                if xx-s <= ox < xx+e and yy-s <= oy < yy+e:
+                    px = ox - xx if ox < xx else (-s+e)//2 + xx - ox
+                    py = oy - yy if oy < yy else (-s + e)//2 + yy - oy
+                    g_agents[0][px][py] = 1
+
+        return np.concatenate([
+            g_res, g_stor_tanks, g_stored, g_agents
+        ], axis=0).reshape(-1) 
+    
+    def get_agent_state(self,id):
+        """Returns the agents current collections and rewards obtained"""
+        agent = self.agents[id]
+        return np.array([agent.collecteds/100,agent.items/100,agent.rewards/1000]).reshape(-1)
+
+    def draw(self):
+        self.win.fill((0, 0, 0))
+        self.draw_grid()
+        self.draw_trail()
+        self.draw_items()
+
+        # self.render_text(f"Collected :{self.collected:3}",(0,0))
+        # self.render_text(f"Items     :{self.items:3}",(0,20))
+        self.render_text(f"Steps     :{self.current_step:4}", (0, 0))
+        # self.render_text(f"Rewards :{self.total_rewards:3}",(250,20))
+        # self.render_text(f"Energy :{self.agent_energy:3}",(250,20))
+        # self.get_state()
+        # agent_colors = [(0,0,200),(200,0,200),(255,0,0),(255,255,0)]
+        # for agent,color in zip(self.agents,agent_colors):
+        #     self.draw_box(agent.x,agent.y,color)
+
+        for agent in self.agents:
+            self.draw_box(agent.x, agent.y, agent.color)
+        # self.draw_box(self.agent_pos[0],self.agent_pos[1],(0,0,200))
+        self.draw_visibility()
+

@@ -1,4 +1,3 @@
-from numpy.core.overrides import verify_matching_signatures
 import torch as T
 import torch.nn as nn
 import pygame as py
@@ -10,9 +9,11 @@ np.random.seed(5)
 
 # from algorithm.ppo import TrainerGRU, TrainerNOGRU,Simulator
 # from algorithm.ppo import TrainerGRU, TrainerNOGRU_V,SimulatorV
-from environment.gatherer import Gatherer
+# from environment.gatherer import Gatherer
+from environment.gatherer import GathererState
 from environment.collector import PowerGame 
 
+from algorithm.reinforce import MultiEnvironmentSimulator
 from algorithm.reinforce import Trainer, MultiAgentRunner, MultiAgentSimulator, Simulator
 # from algorithm.reinforce import Trainer,  Simulator
 
@@ -20,9 +21,11 @@ class StateRAgent(nn.Module):
     def __init__(self, input_size,state_size,output_size=6):
         super().__init__()
         self.input_size = input_size
-        self.state_size= state_sizekj 
+        self.state_size= state_size 
+        self.output_size = output_size
         self.pre = nn.Linear(input_size, 64)
         self.hidden = T.zeros((1, 1, 64))
+        self.hidden_states = []
 
         self.embedder = nn.Sequential(
             nn.Linear(state_size,10),
@@ -57,7 +60,9 @@ class StateRAgent(nn.Module):
     def forward(self, x,states):
         #x shape : 
         #states shape: -1,1,self.state_size
-        self.activations = []
+        self.activations = [] # clearing activations because 
+        #                       heach step different environment uses the model
+
         x = x.reshape(-1, 1, self.input_size)
         states = states.reshape(-1,1,self.state_size)
         x = self.pre(x)
@@ -150,15 +155,27 @@ class Agent(nn.Module):
 
 if __name__ == '__main__':
     # MULTI AGENTS TESTING
-    nagents =  1 
-    env = Gatherer(gr = 20,gc = 20,vis = 5,nagents=nagents)
-    models = [StateRAgent(input_size=100) for i in range(nagents)]
-    trainers = [Trainer(m,learning_rate=0.001) for m in models ] 
-    s = MultiAgentSimulator(
-        models,env,trainers,nactions=6,
-        log_message="single agent cloned later",
-        visual_activations = True 
-    )
-    train = 0 
-    s.run(1000,1000,train=train,render_once=1,saveonce=2)
+    # nagents =  1 
+    # env = StateGatherer(gr = 20,gc = 20,vis = 5,nagents=nagents)
+    # models = [StateRAgent(input_size=100) for i in range(nagents)]
+    # trainers = [Trainer(m,learning_rate=0.001) for m in models ] 
 
+    # s = MultiAgentSimulator(
+    #     models,env,trainers,nactions=6,
+    #     log_message="single agent cloned later",
+    #     visual_activations = True 
+    # )
+    # train = 0 
+    # s.run(1000,1000,train=train,render_once=1,saveonce=2)
+
+    #MULTI ENVIRONMENT TESTING
+    boxsize = 10
+    env = GathererState(gr = 20,gc = 20,vis=5,nagents=1,boxsize=boxsize)
+    env1 = GathererState(gr = 20,gc=20,vis=5,nagents=1,boxsize=boxsize)
+    model = StateRAgent(input_size=100,state_size=3)
+    s = MultiEnvironmentSimulator(
+        [model],[env,env1],nactions=6,
+        log_message="Testing multiple environment",
+        visual_activations=True)
+    train = 1
+    s.run(1000,1000,train=train,render_once=1,saveonce=2)
