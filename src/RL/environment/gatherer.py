@@ -43,17 +43,29 @@ class Agent:
         if len(self.trail_positions) > 20:
             self.trail_positions.pop(0)
 
-        if left and self.y > 0:
-            self.y -= 1
+        if left: 
+            if self.y > 0:
+                self.y -= 1
+            else:
+                self.y = h-1
 
-        elif right and self.y < h-1:
-            self.y += 1
+        elif right: 
+            if self.y < h-1:
+               self.y += 1
+            else:
+                self.y = 0
 
-        elif up and self.x > 0:
-            self.x -= 1
+        elif up: 
+            if self.x > 0:
+                self.x -= 1
+            else:
+                self.x = v-1
 
-        elif down and self.x < v-1:
-            self.x += 1
+        elif down :
+            if self.x < v-1:
+                self.x += 1
+            else:
+                self.x = 0
 
         elif pick:
             if g_res[cx][cy] == 1:
