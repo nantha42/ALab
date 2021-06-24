@@ -109,13 +109,13 @@ class StateAgent(Agent):
             else:
                 self.y = 0
 
-        elif up and self.x > 0:
+        elif up :
             if self.x > 0:
                 self.x -= 1
             else:
                 self.x = v-1
 
-        elif down and self.x < v-1:
+        elif down :
             if self.x < v-1:
                 self.x += 1
             else:
