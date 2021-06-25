@@ -171,10 +171,12 @@ if __name__ == '__main__':
     #MULTI ENVIRONMENT TESTING
     boxsize = 10
     env = GathererState(gr = 10,gc = 10,vis=5,nagents=1,boxsize=boxsize,spawn_limit = 10)
-    env1 = GathererState(gr = 20,gc=20,vis=5,nagents=1,boxsize=boxsize,spawn_limit=25)
+    env1 = GathererState(gr = 10,gc = 10,vis=5,nagents=1,boxsize=boxsize,spawn_limit = 10)
+    env2 = GathererState(gr = 4,gc = 4,vis=5,nagents=1,boxsize=boxsize,spawn_limit = 5)
+    env3 = GathererState(gr = 20,gc=20,vis=5,nagents=1,boxsize=boxsize,spawn_limit=25)
     model = StateRAgent(input_size=100,state_size=3)
     s = MultiEnvironmentSimulator(
-        [model],[env,env1],nactions=6,
+        [model],[env,env1,env2,env3],nactions=6,
         log_message="Testing multiple environment",
         visual_activations=True)
     train = 1

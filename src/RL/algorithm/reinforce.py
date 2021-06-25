@@ -1113,13 +1113,18 @@ class MultiEnvironmentSimulator(MultiAgentSimulator):
         sw,sy = 0 ,0
         max_h = []
         for env in environments:
-            max_h.append(env.win.get_height())
             if sw + env.win.get_width() > 250:
                 sy += max(max_h) + 10
-                max_h = []
+                sw = 0
+                max_h = [env.win.get_height()]
+            else:
+                sw += env.win.get_width()
+                max_h.append(env.win.get_height())
 
         env_w = 250 
-        env_h = max(sy,max(max_h))
+        env_h = sy + max(max_h)
+        print(sy,max(max_h))
+        print(env_w,env_h)
 
         if visual_activations:
             self.w = 50 + env_w + extra_width
@@ -1146,7 +1151,7 @@ class MultiEnvironmentSimulator(MultiAgentSimulator):
 
         for c in self.containers:
             c.env.display_neural_image = self.visual_activations
-
+            k
         for _ in range(episodes):
             for c in self.containers:
                 c.reset()

@@ -154,7 +154,7 @@ class Gatherer:
         self.w = 50 + gc*self.box_size + 50
         self.h = 50 + gr*self.box_size + 50
         self.win = py.Surface((self.w, self.h), py.DOUBLEBUF, 32)
-        self.start_position = [50, 50]
+        self.start_position = [0, 0]
 
         self.nagents = nagents
 
@@ -199,6 +199,7 @@ class Gatherer:
         trect = text.get_rect()
         trect.topleft = pos
         self.win.blit(text, trect)
+        return text.get_width(),text.get_height()
     
     def get_state(self, id):
         agent = self.agents[id]
@@ -268,7 +269,6 @@ class Gatherer:
 
         for agent in self.agents:
             agent.reset()
-        self.total_rewards = agent.x, agent.y
         self.current_step = 0
         self.processors = []
 
@@ -376,8 +376,8 @@ class Gatherer:
         self.draw_items()
         # self.render_text(f"Collected :{self.collected:3}",(0,0))
         # self.render_text(f"Items     :{self.items:3}",(0,20))
-        self.render_text(f"Steps     :{self.current_step:4}", (10, 10))
-        # self.render_text(f"Rewards :{self.total_rewards:3}",(250,20))
+        self.render_text(f"S:{self.current_step:4}", (10, 10))
+        self.render_text(f"R:{self.total_rewards:3}",(self.win.get_width()-50,20))
         # self.render_text(f"Energy :{self.agent_energy:3}",(250,20))
         # self.get_state()
         # agent_colors = [(0,0,200),(200,0,200),(255,0,0),(255,255,0)]
@@ -452,20 +452,26 @@ class GathererState(Gatherer):
         self.spawn_limit = spawn_limit
         self.font = py.font.SysFont("times", boxsize)
         self.box_size = boxsize
-        self.start_position = [10, 10]
+        self.start_position = [0, self.box_size]
         self.w = boxsize + gc*self.box_size + 10
         self.h = boxsize + gr*self.box_size + 10
         self.win = py.Surface((self.w, self.h), py.DOUBLEBUF, 32)
         print("SURFACE SHAPES :",self.w,self.h)
-
         self.agents = []
         all_colors = [[255, 255, 0], [28, 230, 255], [255, 52, 255], [255, 74, 70], [0, 137, 65], [0, 111, 166], [163, 0, 89], [255, 219, 229], [122, 73, 0], [0, 0, 166], [99, 255, 172], [183, 151, 98], [0, 77, 67], [143, 176, 255], [153, 125, 135], [90, 0, 7], [128, 150, 147], [254, 255, 230], [27, 68, 0], [79, 198, 1], [59, 93, 255], [74, 59, 83], [255, 47, 128], [97, 97, 90], [186, 9, 0], [107, 121, 0], [0, 194, 160], [255, 170, 146], [255, 144, 201], [185, 3, 170], [209, 97, 0], [
             221, 239, 255], [0, 0, 53], [123, 79, 75], [161, 194, 153], [48, 0, 24], [10, 166, 216], [1, 51, 73], [0, 132, 111], [55, 33, 1], [255, 181, 0], [194, 255, 237], [160, 121, 191], [204, 7, 68], [192, 185, 178], [194, 255, 153], [0, 30, 9], [0, 72, 156], [111, 0, 98], [12, 189, 102], [238, 195, 255], [69, 109, 117], [183, 123, 104], [122, 135, 161], [120, 141, 102], [136, 85, 120], [250, 208, 159], [255, 138, 154], [209, 87, 160], [190, 196, 89], [69, 102, 72], [0, 134, 237], [136, 111, 76]]
+        self.total_rewards = []
         for a in range(nagents):
+            self.total_rewards.append(0)
             self.agents.append(StateAgent())
             agent = self.agents[a]
             agent.color = all_colors[a]
             self.grid_agents[a][agent.x][agent.y]
+
+    def reset(self):
+        super().reset()
+        self.total_rewards = [0 for i in range(len(self.agents))]
+
 
     def act(self,action_vecs):
         """ The action_vec should is 2 dimension always.
@@ -482,6 +488,7 @@ class GathererState(Gatherer):
             # unmatrixed shape of state appened to states
             # returning the additional information about the state of the agent
             states.append([self.get_state(i),self.get_agent_state(i) ])         
+            self.total_rewards[i] += rewards[i]
         states = np.array(states)
         return states, rewards
 
@@ -539,7 +546,10 @@ class GathererState(Gatherer):
 
         # self.render_text(f"Collected :{self.collected:3}",(0,0))
         # self.render_text(f"Items     :{self.items:3}",(0,20))
-        self.render_text(f"Steps     :{self.current_step:4}", (0, 0))
+
+        w,_ = self.render_text(f"S: {self.current_step:4}", (0, 0))
+        self.render_text(f"R: {sum(self.total_rewards):3}",(w+5,0))
+
         # self.render_text(f"Rewards :{self.total_rewards:3}",(250,20))
         # self.render_text(f"Energy :{self.agent_energy:3}",(250,20))
         # self.get_state()
