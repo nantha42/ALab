@@ -478,19 +478,23 @@ class GathererState(Gatherer):
             Returns states -->[sourrounding info, agent collections], rewards"""
         rewards = []
         states = []
+        agent_states = []
         for i in range(len(self.agents)):
             agent = self.agents[i]
             r, picks = agent.act(
                 action_vecs[i], self.grid_resource, self.grid_stored)
             self.res -= picks
             rewards.append(r)
+
         for i in range(len(self.agents)):
             # unmatrixed shape of state appened to states
             # returning the additional information about the state of the agent
-            states.append([self.get_state(i),self.get_agent_state(i) ])         
+            states.append(self.get_state(i))
+            agent_states .append(self.get_agent_state(i))
             self.total_rewards[i] += rewards[i]
         states = np.array(states)
-        return states, rewards
+        agent_states = np.array(agent_states)
+        return [states,agent_states] , rewards
 
     def get_state(self, id):
         """ Returns only the surrounding information 
