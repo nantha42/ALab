@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import pickle 
 import torch as T
+import numpy as np
 import pandas as pd
 import time
 import json
@@ -13,6 +14,7 @@ class RLGraph:
         print("GRAPH runame = ",self.run_name)
         self.log_message = None
         self.final_reward = 0
+        self.single_value = True
         with open(self.directory+"log.json","r")  as f:
             self.logs = json.load(f) 
 
@@ -30,19 +32,34 @@ class RLGraph:
         pickle.load(f,self.hist)
 
     def newdata(self,x):
+        if type(x) == type(np.array([])):
+            self.single_value = False
         self.hist.append(x)
     
     def save_model(self,model):
         T.save(model.state_dict(),self.directory+"models/"+self.run_name+".pth")
         print("****** Model Saved ******")
-    
+
     def plot(self):
-        smoothed_rewards = pd.Series.rolling(pd.Series(self.hist), 10).mean()
-        smoothed_rewards = [elem for elem in smoothed_rewards]
-        self.final_reward = smoothed_rewards[-1]
-        plt.plot(self.hist)
-        plt.plot(smoothed_rewards)
-        plt.xlabel('Episodes')
-        plt.ylabel('Rewards')
-        plt.savefig(self.directory+"plots/"+self.run_name+".png")
-        plt.clf()
+        avg = 10
+        if self.single_value:
+            smoothed_rewards = pd.Series.rolling(pd.Series(self.hist), 10).mean()
+            smoothed_rewards = [elem for elem in smoothed_rewards]
+            self.final_reward = smoothed_rewards[-1]
+            # plt.plot(self.hist)
+            plt.plot(smoothed_rewards)
+            plt.xlabel('Episodes')
+            plt.ylabel('Rewards')
+            plt.savefig(self.directory+"plots/"+self.run_name+".png")
+            plt.clf()
+        else:
+            hist_arr = np.array(self.hist)
+            for j in range(len(hist_arr[0])):
+                smoothed_rewards = pd.Series.rolling(pd.Series(hist_arr[:,j]),10).mean()
+                plt.plot(smoothed_rewards)
+            plt.xlabel('Episodes')
+            plt.ylabel('Rewards')
+            legends = [ "Env "+str(j) for j in range(len(hist_arr[0])) ] 
+            plt.legend(legends)
+            plt.savefig(self.directory +  "plots/"+ self.run_name + ".png")
+            plt.clf()

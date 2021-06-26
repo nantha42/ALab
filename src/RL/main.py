@@ -172,7 +172,7 @@ if __name__ == '__main__':
 
     #MULTI ENVIRONMENT TESTING
     boxsize = 20
-    na = 3
+    na = 2
     env = GathererState(gr = 10,gc = 10,vis=5,nagents=na,boxsize=boxsize,spawn_limit = 10)
     env1 = GathererState(gr = 10,gc = 10,vis=5,nagents=na,boxsize=boxsize,spawn_limit = 10)
     env2 = GathererState(gr = 10,gc = 10,vis=5,nagents=na,boxsize=boxsize,spawn_limit = 10)
@@ -182,14 +182,15 @@ if __name__ == '__main__':
     env6 = GathererState(gr = 6,gc = 6,vis=5,nagents=na,boxsize=boxsize,spawn_limit = 10)
     # env2 = GathererState(gr = 4,gc = 4,vis=5,nagents=2,boxsize=boxsize,spawn_limit = 5)
     # env3 = GathererState(gr = 20,gc=20,vis=5,nagents=2,boxsize=boxsize,spawn_limit=25)
-    environments = [env,env1,env2,env3,env4,env5,env6]
+    environments = [env,env1,env2,env3]
 
     model = StateRAgent(input_size=100,state_size=3,containers=len(environments))
     model1 = StateRAgent(input_size=100,state_size=3,containers=len(environments))
     model2 = StateRAgent(input_size=100,state_size=3,containers=len(environments))
 
+    models = [model,model1]
     s = MultiEnvironmentSimulator(
-        [model,model1,model2],environments,nactions=6,
+        models,environments,nactions=6,
         log_message="Testing multiple environment",
         visual_activations=True)
 

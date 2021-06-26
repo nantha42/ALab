@@ -1129,7 +1129,7 @@ class MultiEnvironmentSimulator(MultiAgentSimulator):
         nenvs = len(environments)
         self.containers = [Container(x, models) for x in environments]
         self.environments = environments  # StateGatherers with different states
-        self.trainers = [Trainer(m) for m in self.models]
+        self.trainers = [Trainer(m,learning_rate=0.01) for m in self.models]
 
     def initiate_window(self,environments,visual_activations):
         extra_width = 300
@@ -1185,8 +1185,6 @@ class MultiEnvironmentSimulator(MultiAgentSimulator):
             self.window.blit(cont.env.win,pos)
         py.display.update()
 
-
-
     def run(self, episodes, steps, train=False, render_once=1e10, saveonce=10):
         if train:
             assert self.recorders[0].log_message is not None, "log_message is necessary during training, Instantiate Runner with log message"
@@ -1196,10 +1194,15 @@ class MultiEnvironmentSimulator(MultiAgentSimulator):
         for _ in range(episodes):
             for c in self.containers:
                 c.reset()
-            
-            tqdm_steps = tqdm(range(steps), bar_format='{l_bar}{bar:10}{r_bar}{bar:-10b}')
-            for step in tqdm_steps:
 
+            trewards = [] 
+            for j in range(len(self.models)):
+                trewards.append([0 for p in range(len(self.containers))])
+            trewards = np.array(trewards)            
+
+            tqdm_steps = tqdm(range(steps), bar_format='{l_bar}{bar:10}{r_bar}{bar:-10b}')
+            for step in tqdm_steps:                    
+                self.event_handler()
                 states_of_models = []
                 agent_states_of_models = []
                 for c in self.containers:
@@ -1233,8 +1236,6 @@ class MultiEnvironmentSimulator(MultiAgentSimulator):
                     # print("UUUU",onehot)
                     action_vecs.append(onehot.numpy())
 
-
-                
                 action_vecs = np.array(action_vecs)
                 # print("Shape of actionvec: ",action_vecs.shape)
                 # print("REW1233",action_vecs.shape) 
@@ -1248,19 +1249,26 @@ class MultiEnvironmentSimulator(MultiAgentSimulator):
                 # print("REW",np.array(rewards).shape) 
                 rewards = np.transpose(np.array(rewards),axes=(1,0))
                 # print("REW!",action_vecs.shape,rewards.shape)
-
                 tqdm_steps.set_description(f"Episode: {_:4}")
+                for j in range(len(self.trainers)):
+                    trewards[j] += rewards[j]
                 if train:
                     # print("REW!",np.array(log_probs).shape,rewards.shape)
                     for j in range(len(self.trainers)):
                         # print("STORING ",log_probs[j])
                         self.trainers[j].store_records(rewards[j],log_probs[j])
-                
                 self.visualize()
+
             if train:
-                for trainer in self.trainers:
-                    trainer.update()
-                    trainer.clear_memory()
+                for j in range(len(self.trainers)):
+                    self.trainers[j].update()
+                    self.trainers[j].clear_memory()
+
+                    self.recorders[j].newdata(trewards[j])
+                    self.recorders[j].save()
+                    self.recorders[j].plot()
+                    self.recorders[j].save_model(self.models[j])
+
 
 
     # def run(self, episodes, steps, train=False, render_once=1e10, saveonce=10):
