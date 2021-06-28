@@ -21,6 +21,7 @@ class Trainer:
     def store_records(self, reward, log_prob):
         self.rewards.append(reward)
         self.log_probs.append(log_prob)
+        # print("S",self.log_probs)
 
     def clear_memory(self):
         self.rewards = []
@@ -36,6 +37,9 @@ class Trainer:
         #         Gt = Gt + GAMMA**pw * r
         #         pw = pw + 1
         #     discounted_rewards.append(Gt)
+        self.rewards = T.tensor(self.rewards).float()
+        # print("REWRDS ",self.rewards.shape)
+        self.log_probs = T.stack(self.log_probs,dim=0)
         Gt = 0
         gamma = 0.99
         for t in reversed(range(len(self.rewards))):
@@ -43,6 +47,12 @@ class Trainer:
             discounted_rewards.append(Gt)
 
         discounted_rewards.reverse()
+        discounted_rewards = T.stack(discounted_rewards,dim=0)
+
+        # print("DIS element",discounted_rewards[0].shape)
+        # print("DIS SHAPE",discounted_rewards)
+        # print("LOG PROB SHAPE",self.log_probs.shape)
+        # print("LOG PROB",self.log_probs)
 
         discounted_rewards = T.tensor(discounted_rewards)
         discounted_rewards = (discounted_rewards - discounted_rewards.mean()) / (
@@ -516,6 +526,7 @@ class MultiAgentRunner:
         for m in range(len(self.models)):
             self.recorders.append(RLGraph())
             self.recorders[m].log_message = log_message
+            self.recorders[m].save_log()
         self.activations = []
         self.weights = []
         self.visual_activations = visual_activations
@@ -1062,12 +1073,24 @@ class Container:
         self.trewards = np.zeros((1, len(self.models)))
         self.episode_rewards = []
 
-    def update(self):
-        """Train the models with the collected trajectory data for the
-        given environment"""
-        for t in self.trainers:
-            t.update()
-            t.clear_memory()
+    # def update(self):
+    #     """Train the models with the collected trajectory data for the
+    #     given environment"""
+    #     for t in self.trainers:
+    #         t.update()
+    #         t.clear_memory()
+
+    def get_states(self):
+        return self.states,self.agent_states
+
+    def act(self,action_vecs):
+        combined,rewards = self.env.act(action_vecs)
+        self.trewards += np.array(rewards)
+        self.states, self.agent_states = combined[0],combined[1]
+
+        self.env.step()
+        return rewards
+
 
     def step(self, train=True):
         """Performs a single step over the environments with all the models"""
@@ -1107,6 +1130,9 @@ class MultiEnvironmentSimulator(MultiAgentSimulator):
         nenvs = len(environments)
         self.containers = [Container(x, models) for x in environments]
         self.environments = environments  # StateGatherers with different states
+        self.simulation_speed = 0.0
+        self.trainers = [Trainer(m,learning_rate=0.01) for m in self.models]
+
 
     def initiate_window(self,environments,visual_activations):
         extra_width = 300
@@ -1115,7 +1141,7 @@ class MultiEnvironmentSimulator(MultiAgentSimulator):
         for env in environments:
             if sw + env.win.get_width() > 250:
                 sy += max(max_h) + 10
-                sw = 0
+                sw = env.win.get_width()
                 max_h = [env.win.get_height()]
             else:
                 sw += env.win.get_width()
@@ -1123,8 +1149,6 @@ class MultiEnvironmentSimulator(MultiAgentSimulator):
 
         env_w = 250 
         env_h = sy + max(max_h)
-        print(sy,max(max_h))
-        print(env_w,env_h)
 
         if visual_activations:
             self.w = 50 + env_w + extra_width
@@ -1141,50 +1165,166 @@ class MultiEnvironmentSimulator(MultiAgentSimulator):
             if event.type == py.QUIT:
                 py.quit()
                 exit()
-            
+
+            if event.type == py.KEYDOWN:
+                if event.key == py.K_i:
+                    print("Speed INCREASE")
+                    if self.simulation_speed > 0:
+                        self.simulation_speed -= 0.1
+
+                if event.key == py.K_o:
+                    print("Speed DECREASE")
+                    self.simulation_speed += 0.1
+                
+                if self.simulation_speed < 0:
+                    self.simulation_speed = 0
+
             if event.type == py.MOUSEBUTTONDOWN:
                 pass
-                
+        
+
+    def visualize(self):
+        self.window.fill((0,0,0))
+        initial = [10,10]
+        positions = [initial]
+        for i in range(len(self.containers)-1):
+            w,h = self.containers[i].env.win.get_width(),self.containers[i].env.win.get_height()
+            lx,ly = positions[-1]
+            if lx + w > 250:
+                positions.append([10,ly+h+10])
+            else: 
+                positions.append([lx+w+10,ly])
+
+        for cont,pos in zip(self.containers,positions):
+            self.window.blit(cont.env.win,pos)
+        py.display.update()
+
     def run(self, episodes, steps, train=False, render_once=1e10, saveonce=10):
         if train:
             assert self.recorders[0].log_message is not None, "log_message is necessary during training, Instantiate Runner with log message"
 
         for c in self.containers:
             c.env.display_neural_image = self.visual_activations
-            k
         for _ in range(episodes):
             for c in self.containers:
                 c.reset()
-            containers_trainings = [] 
-            for c in self.containers:
-                tqdm_steps = tqdm(range(steps), bar_format='{l_bar}{bar:10}{r_bar}{bar:-10b}')
-                frames = []
 
-                for step in tqdm_steps:
-                    c.step()
-                    self.event_handler()
-                    # self.window.blit(c.env.win, p)
-                    frames.append(c.env.win.copy())
-                    tqdm_steps.set_description(f"Episode: {_:4}")
-                containers_trainings.append(frames)
-                # tqdm_steps.set_description(f"Episode: {_:4} Rewards : {trewards}")
-                c.update()
+            trewards = [] 
+            for j in range(len(self.models)):
+                trewards.append([0 for p in range(len(self.containers))])
+            trewards = np.array(trewards)            
+            tqdm_steps = tqdm(range(steps), bar_format='{l_bar}{bar:10}{r_bar}{bar:-10b}')
+            for step in tqdm_steps: 
+                self.event_handler()
+                states_of_models = []
+                agent_states_of_models = []
+                for c in self.containers:
+                    state, agent_state = c.get_states() # contains multiple agents states stacked
+                    # state = [
+                    #     [0,0,0],   model 1
+                    #     [0,0,0],   model 2
+                    # 
+                    states_of_models.append(state)
+                    agent_states_of_models.append(agent_state)
 
-            ######### Visualizing ########### 
-            initial = [10,10]
-            positions = [initial]
-            for i in range(len(containers_trainings)-1):
-                w,h = containers_trainings[i][0].get_width(),containers_trainings[i][0].get_height()
-                lx,ly = positions[-1]
-                if lx + w > 250:
-                    positions.append([10,ly+h])
-                else: 
-                    positions.append([lx+w+10,ly])
+                states_of_models = np.transpose(np.array(states_of_models),axes=(1,0,2))
+                agent_states_of_models = np.transpose(np.array(agent_states_of_models),axes=(1,0,2))
 
-            render = tqdm(range(steps),bar_format='{l_bar}{bar:10}{r_bar}{bar:-10b}')
-            for i in render:
-                for cont,pos in zip(containers_trainings,positions):
-                    self.window.blit(cont[i],pos)
-                render.set_description(f"Rendering :{i:4} ")
-                py.display.update()
+                action_vecs = []
+                log_probs = []
+                for i in range(len(self.models)):
+                    state = T.from_numpy(states_of_models[i]).float()
+                    agent_state = T.from_numpy(agent_states_of_models[i]).float()
+                    actions = self.models[i](state,agent_state).squeeze(0)
+                    # print("Actions",actions)
+                    c = Categorical(actions)
+                    action = c.sample() 
+                    log_prob = c.log_prob(action)
+                    # print("LOG prob: ",log_prob)
+                    log_probs.append(log_prob)
+
+                    # print("TTTTT",action)
+                    u = T.eye(self.models[i].output_size)
+                    onehot = u[action]
+                    # print("UUUU",onehot)
+                    action_vecs.append(onehot.numpy())
+
+                action_vecs = np.array(action_vecs)
+                # print("Shape of actionvec: ",action_vecs.shape)
+                # print("REW1233",action_vecs.shape) 
+                action_vecs = np.transpose(action_vecs,axes=(1,0,2))
+                # print("Shape of actionvec: ",action_vecs.shape)
+                rewards = []
+                for i in range(len(self.containers)):
+                    # print("Passing ",action_vecs[i].shape)
+                    reward = self.containers[i].act(action_vecs[i])
+                    rewards.append(reward)
+                # print("REW",np.array(rewards).shape) 
+                rewards = np.transpose(np.array(rewards),axes=(1,0))
+                # print("REW!",action_vecs.shape,rewards.shape)
+                tqdm_steps.set_description(f"Episode: {_:4}")
+                for j in range(len(self.trainers)):
+                    trewards[j] += rewards[j]
+                if train:
+                    # print("REW!",np.array(log_probs).shape,rewards.shape)
+                    for j in range(len(self.trainers)):
+                        # print("STORING ",log_probs[j])
+                        self.trainers[j].store_records(rewards[j],log_probs[j])
+                else:
+                    time.sleep(self.simulation_speed)
+                self.visualize()
+
+            if train:
+                for j in range(len(self.trainers)):
+                    self.trainers[j].update()
+                    self.trainers[j].clear_memory()
+
+                    self.recorders[j].newdata(trewards[j])
+                    self.recorders[j].save()
+                    self.recorders[j].plot()
+                    self.recorders[j].save_model(self.models[j])
+
+
+
+    # def run(self, episodes, steps, train=False, render_once=1e10, saveonce=10):
+    #     if train:
+    #         assert self.recorders[0].log_message is not None, "log_message is necessary during training, Instantiate Runner with log message"
+           
+ 
+    #     for c in self.containers:
+    #         c.env.display_neural_image = self.visual_activations
+    #     for _ in range(episodes):
+    #         for c in self.containers:
+    #             c.reset()
+    #         containers_trainings = [] 
+    #         for c in self.containers:
+    #             tqdm_steps = tqdm(range(steps), bar_format='{l_bar}{bar:10}{r_bar}{bar:-10b}')
+    #             frames = []
+    #             for step in tqdm_steps:
+    #                 c.step()
+    #                 self.event_handler()
+    #                 # self.window.blit(c.env.win, p)
+    #                 frames.append(c.env.win.copy())
+    #                 tqdm_steps.set_description(f"Episode: {_:4}")
+    #             containers_trainings.append(frames)
+    #             # tqdm_steps.set_description(f"Episode: {_:4} Rewards : {trewards}")
+    #             c.update()
+
+    #         ######### Visualizing ########### 
+    #         initial = [10,10]
+    #         positions = [initial]
+    #         for i in range(len(containers_trainings)-1):
+    #             w,h = containers_trainings[i][0].get_width(),containers_trainings[i][0].get_height()
+    #             lx,ly = positions[-1]
+    #             if lx + w > 250:
+    #                 positions.append([10,ly+h])
+    #             else: 
+    #                 positions.append([lx+w+10,ly])
+
+    #         render = tqdm(range(steps),bar_format='{l_bar}{bar:10}{r_bar}{bar:-10b}')
+    #         for i in render:
+    #             for cont,pos in zip(containers_trainings,positions):
+    #                 self.window.blit(cont[i],pos)
+    #             render.set_description(f"Rendering :{i:4} ")
+    #             py.display.update()
                 
