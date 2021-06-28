@@ -171,28 +171,33 @@ if __name__ == '__main__':
     # s.run(1000,1000,train=train,render_once=1,saveonce=2)
 
     #MULTI ENVIRONMENT TESTING
-    boxsize = 20
+    boxsize = 10
     na = 2
     env = GathererState(gr = 10,gc = 10,vis=5,nagents=na,boxsize=boxsize,spawn_limit = 10)
     env1 = GathererState(gr = 10,gc = 10,vis=5,nagents=na,boxsize=boxsize,spawn_limit = 10)
     env2 = GathererState(gr = 10,gc = 10,vis=5,nagents=na,boxsize=boxsize,spawn_limit = 10)
     env3 = GathererState(gr = 10,gc = 10,vis=5,nagents=na,boxsize=boxsize,spawn_limit = 10)
-    env4 = GathererState(gr = 6,gc = 6,vis=5,nagents=na,boxsize=boxsize,spawn_limit = 10)
-    env5 = GathererState(gr = 6,gc = 6,vis=5,nagents=na,boxsize=boxsize,spawn_limit = 10)
-    env6 = GathererState(gr = 6,gc = 6,vis=5,nagents=na,boxsize=boxsize,spawn_limit = 10)
+    env4 = GathererState(gr = 10,gc = 10,vis=5,nagents=na,boxsize=boxsize,spawn_limit = 10)
+    env5 = GathererState(gr = 10,gc = 10,vis=5,nagents=na,boxsize=boxsize,spawn_limit = 10)
+    env6 = GathererState(gr = 10,gc = 10,vis=5,nagents=na,boxsize=boxsize,spawn_limit = 10)
+    env7 = GathererState(gr = 10,gc = 10,vis=5,nagents=na,boxsize=boxsize,spawn_limit = 10)
     # env2 = GathererState(gr = 4,gc = 4,vis=5,nagents=2,boxsize=boxsize,spawn_limit = 5)
     # env3 = GathererState(gr = 20,gc=20,vis=5,nagents=2,boxsize=boxsize,spawn_limit=25)
     environments = [env,env1,env2,env3]
+    # environments = [env]
 
     model = StateRAgent(input_size=100,state_size=3,containers=len(environments))
     model1 = StateRAgent(input_size=100,state_size=3,containers=len(environments))
     model2 = StateRAgent(input_size=100,state_size=3,containers=len(environments))
 
+    model.load_state_dict(T.load("logs/models/1624719190.795712.pth"))
+    model1.load_state_dict(T.load("logs/models/1624719190.798054.pth"))
+
     models = [model,model1]
     s = MultiEnvironmentSimulator(
         models,environments,nactions=6,
-        log_message="Testing multiple environment",
+        log_message="Testing with 4 Environments",
         visual_activations=True)
 
-    train = 1
+    train = 0 
     s.run(1000,500,train=train,render_once=1,saveonce=2)

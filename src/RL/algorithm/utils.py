@@ -18,15 +18,19 @@ class RLGraph:
         with open(self.directory+"log.json","r")  as f:
             self.logs = json.load(f) 
 
-    def save(self):
-        f = open(self.directory+"hists/"+self.run_name+".pkl","wb")
-        pickle.dump(self.hist,f)
+    def save_log(self):
         with open(self.directory+"log.json","r")  as f:
             self.logs = json.load(f) 
         self.logs[self.run_name] = self.log_message
         with open(self.directory+"log.json","w") as f:
             json.dump(self.logs, f,indent=2)
+ 
     
+    def save(self):
+        f = open(self.directory+"hists/"+self.run_name+".pkl","wb")
+        pickle.dump(self.hist,f)
+         
+   
     def load(self,name):
         f = open(self.directory+"hists/"+self.run_name+".pkl","rb")
         pickle.load(f,self.hist)
@@ -38,10 +42,9 @@ class RLGraph:
     
     def save_model(self,model):
         T.save(model.state_dict(),self.directory+"models/"+self.run_name+".pth")
-        print("****** Model Saved ******")
+        # print("****** Model Saved ******")
 
     def plot(self):
-        avg = 10
         if self.single_value:
             smoothed_rewards = pd.Series.rolling(pd.Series(self.hist), 10).mean()
             smoothed_rewards = [elem for elem in smoothed_rewards]

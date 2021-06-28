@@ -526,6 +526,7 @@ class MultiAgentRunner:
         for m in range(len(self.models)):
             self.recorders.append(RLGraph())
             self.recorders[m].log_message = log_message
+            self.recorders[m].save_log()
         self.activations = []
         self.weights = []
         self.visual_activations = visual_activations
@@ -1129,7 +1130,9 @@ class MultiEnvironmentSimulator(MultiAgentSimulator):
         nenvs = len(environments)
         self.containers = [Container(x, models) for x in environments]
         self.environments = environments  # StateGatherers with different states
+        self.simulation_speed = 0.0
         self.trainers = [Trainer(m,learning_rate=0.01) for m in self.models]
+
 
     def initiate_window(self,environments,visual_activations):
         extra_width = 300
@@ -1138,7 +1141,7 @@ class MultiEnvironmentSimulator(MultiAgentSimulator):
         for env in environments:
             if sw + env.win.get_width() > 250:
                 sy += max(max_h) + 10
-                sw = 0
+                sw = env.win.get_width()
                 max_h = [env.win.get_height()]
             else:
                 sw += env.win.get_width()
@@ -1146,8 +1149,6 @@ class MultiEnvironmentSimulator(MultiAgentSimulator):
 
         env_w = 250 
         env_h = sy + max(max_h)
-        print(sy,max(max_h))
-        print(env_w,env_h)
 
         if visual_activations:
             self.w = 50 + env_w + extra_width
@@ -1164,7 +1165,20 @@ class MultiEnvironmentSimulator(MultiAgentSimulator):
             if event.type == py.QUIT:
                 py.quit()
                 exit()
-            
+
+            if event.type == py.KEYDOWN:
+                if event.key == py.K_i:
+                    print("Speed INCREASE")
+                    if self.simulation_speed > 0:
+                        self.simulation_speed -= 0.1
+
+                if event.key == py.K_o:
+                    print("Speed DECREASE")
+                    self.simulation_speed += 0.1
+                
+                if self.simulation_speed < 0:
+                    self.simulation_speed = 0
+
             if event.type == py.MOUSEBUTTONDOWN:
                 pass
         
@@ -1177,7 +1191,7 @@ class MultiEnvironmentSimulator(MultiAgentSimulator):
             w,h = self.containers[i].env.win.get_width(),self.containers[i].env.win.get_height()
             lx,ly = positions[-1]
             if lx + w > 250:
-                positions.append([10,ly+h])
+                positions.append([10,ly+h+10])
             else: 
                 positions.append([lx+w+10,ly])
 
@@ -1199,9 +1213,8 @@ class MultiEnvironmentSimulator(MultiAgentSimulator):
             for j in range(len(self.models)):
                 trewards.append([0 for p in range(len(self.containers))])
             trewards = np.array(trewards)            
-
             tqdm_steps = tqdm(range(steps), bar_format='{l_bar}{bar:10}{r_bar}{bar:-10b}')
-            for step in tqdm_steps:                    
+            for step in tqdm_steps: 
                 self.event_handler()
                 states_of_models = []
                 agent_states_of_models = []
@@ -1257,6 +1270,8 @@ class MultiEnvironmentSimulator(MultiAgentSimulator):
                     for j in range(len(self.trainers)):
                         # print("STORING ",log_probs[j])
                         self.trainers[j].store_records(rewards[j],log_probs[j])
+                else:
+                    time.sleep(self.simulation_speed)
                 self.visualize()
 
             if train:

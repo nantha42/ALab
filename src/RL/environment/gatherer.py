@@ -39,7 +39,7 @@ class Agent:
         cx, cy = self.x, self.y
         self.trail_positions.append([cx, cy])
         picks = 0
-        if len(self.trail_positions) > 20:
+        if len(self.trail_positions) > 7:
             self.trail_positions.pop(0)
 
         if left and self.y > 0:
@@ -93,7 +93,7 @@ class StateAgent(Agent):
         cx, cy = self.x, self.y
         self.trail_positions.append([cx, cy])
         picks = 0
-        if len(self.trail_positions) > 20:
+        if len(self.trail_positions) > 7:
             self.trail_positions.pop(0)
 
         if left:
@@ -363,11 +363,17 @@ class Gatherer:
 
 
     def draw_trail(self):
+        # for agent in self.agents:
+        #     for j in range(len(agent.trail_positions)):
+        #         x, y = agent.trail_positions[j]
+        #         c = int(30 + (1.2)**j)
+        #         self.draw_box(x, y, (c, c, c))
+        
         for agent in self.agents:
             for j in range(len(agent.trail_positions)):
-                x, y = agent.trail_positions[j]
-                c = int(30 + (1.2)**j)
-                self.draw_box(x, y, (0, 0, c))
+                x,y = agent.trail_positions[len(agent.trail_positions)-j-1]
+                c = 245-j*30 
+                self.draw_box(x, y, (c, c, c))
 
     def draw(self):
         self.win.fill((0, 0, 0))
@@ -485,7 +491,6 @@ class GathererState(Gatherer):
                 action_vecs[i], self.grid_resource, self.grid_stored)
             self.res -= picks
             rewards.append(r)
-
         for i in range(len(self.agents)):
             # unmatrixed shape of state appened to states
             # returning the additional information about the state of the agent
