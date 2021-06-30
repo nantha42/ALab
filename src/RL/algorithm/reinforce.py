@@ -1131,7 +1131,6 @@ class MultiEnvironmentSimulator(MultiAgentSimulator):
         self.containers = [Container(x, models) for x in environments]
         self.environments = environments  # StateGatherers with different states
         self.simulation_speed = 0.0
-        self.overall_width = 250
         self.trainers = [Trainer(m,learning_rate=0.01) for m in self.models]
 
 
@@ -1139,24 +1138,18 @@ class MultiEnvironmentSimulator(MultiAgentSimulator):
         extra_width = 300
         sw,sy = 0 ,0
         max_h = []
-        if len(environments)> 4:
-            self.overall_width = 500
-        else:
-            self.overall_width = 250
+        overall_width = 500
         for env in environments:
-            if sw + env.win.get_width() > self.overall_width:
+            if sw + env.win.get_width() > overall_width:
                 sy += max(max_h) + 10
                 sw = env.win.get_width()
                 max_h = [env.win.get_height()]
-                print(max_h)
             else:
                 sw += env.win.get_width()
                 max_h.append(env.win.get_height())
-                print(max_h)
 
-        env_w = self.overall_width 
+        env_w = overall_width 
         env_h = sy + max(max_h)
-        print(env_w,env_h)
 
         if visual_activations:
             self.w = 50 + env_w + extra_width
@@ -1199,7 +1192,7 @@ class MultiEnvironmentSimulator(MultiAgentSimulator):
             w,h = self.containers[i].env.win.get_width(),self.containers[i].env.win.get_height()
             lx,ly = positions[-1]
             # if lx + w > 250:
-            if lx + w > self.overall_width:
+            if lx + w > 500:
                 positions.append([10,ly+h+10])
             else: 
                 positions.append([lx+w+10,ly])
@@ -1293,47 +1286,4 @@ class MultiEnvironmentSimulator(MultiAgentSimulator):
                     self.recorders[j].plot()
                     self.recorders[j].save_model(self.models[j])
 
-
-
-    # def run(self, episodes, steps, train=False, render_once=1e10, saveonce=10):
-    #     if train:
-    #         assert self.recorders[0].log_message is not None, "log_message is necessary during training, Instantiate Runner with log message"
-           
- 
-    #     for c in self.containers:
-    #         c.env.display_neural_image = self.visual_activations
-    #     for _ in range(episodes):
-    #         for c in self.containers:
-    #             c.reset()
-    #         containers_trainings = [] 
-    #         for c in self.containers:
-    #             tqdm_steps = tqdm(range(steps), bar_format='{l_bar}{bar:10}{r_bar}{bar:-10b}')
-    #             frames = []
-    #             for step in tqdm_steps:
-    #                 c.step()
-    #                 self.event_handler()
-    #                 # self.window.blit(c.env.win, p)
-    #                 frames.append(c.env.win.copy())
-    #                 tqdm_steps.set_description(f"Episode: {_:4}")
-    #             containers_trainings.append(frames)
-    #             # tqdm_steps.set_description(f"Episode: {_:4} Rewards : {trewards}")
-    #             c.update()
-
-    #         ######### Visualizing ########### 
-    #         initial = [10,10]
-    #         positions = [initial]
-    #         for i in range(len(containers_trainings)-1):
-    #             w,h = containers_trainings[i][0].get_width(),containers_trainings[i][0].get_height()
-    #             lx,ly = positions[-1]
-    #             if lx + w > 250:
-    #                 positions.append([10,ly+h])
-    #             else: 
-    #                 positions.append([lx+w+10,ly])
-
-    #         render = tqdm(range(steps),bar_format='{l_bar}{bar:10}{r_bar}{bar:-10b}')
-    #         for i in render:
-    #             for cont,pos in zip(containers_trainings,positions):
-    #                 self.window.blit(cont[i],pos)
-    #             render.set_description(f"Rendering :{i:4} ")
-    #             py.display.update()
-                
+          
