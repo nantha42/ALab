@@ -1131,6 +1131,7 @@ class MultiEnvironmentSimulator(MultiAgentSimulator):
         self.containers = [Container(x, models) for x in environments]
         self.environments = environments  # StateGatherers with different states
         self.simulation_speed = 0.0
+        self.overall_width = 250
         self.trainers = [Trainer(m,learning_rate=0.01) for m in self.models]
 
 
@@ -1138,17 +1139,24 @@ class MultiEnvironmentSimulator(MultiAgentSimulator):
         extra_width = 300
         sw,sy = 0 ,0
         max_h = []
+        if len(environments)> 4:
+            self.overall_width = 500
+        else:
+            self.overall_width = 250
         for env in environments:
-            if sw + env.win.get_width() > 250:
+            if sw + env.win.get_width() > self.overall_width:
                 sy += max(max_h) + 10
                 sw = env.win.get_width()
                 max_h = [env.win.get_height()]
+                print(max_h)
             else:
                 sw += env.win.get_width()
                 max_h.append(env.win.get_height())
+                print(max_h)
 
-        env_w = 250 
+        env_w = self.overall_width 
         env_h = sy + max(max_h)
+        print(env_w,env_h)
 
         if visual_activations:
             self.w = 50 + env_w + extra_width
@@ -1190,7 +1198,8 @@ class MultiEnvironmentSimulator(MultiAgentSimulator):
         for i in range(len(self.containers)-1):
             w,h = self.containers[i].env.win.get_width(),self.containers[i].env.win.get_height()
             lx,ly = positions[-1]
-            if lx + w > 250:
+            # if lx + w > 250:
+            if lx + w > self.overall_width:
                 positions.append([10,ly+h+10])
             else: 
                 positions.append([lx+w+10,ly])

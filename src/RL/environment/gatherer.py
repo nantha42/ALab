@@ -372,8 +372,8 @@ class Gatherer:
         for agent in self.agents:
             for j in range(len(agent.trail_positions)):
                 x,y = agent.trail_positions[len(agent.trail_positions)-j-1]
-                c = 245-j*30 
-                self.draw_box(x, y, (c, c, c))
+                c = 200-j*20 
+                self.draw_box(x, y, (0, c, c))
 
     def draw(self):
         self.win.fill((0, 0, 0))

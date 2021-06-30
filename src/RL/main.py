@@ -183,7 +183,10 @@ if __name__ == '__main__':
     env7 = GathererState(gr = 10,gc = 10,vis=5,nagents=na,boxsize=boxsize,spawn_limit = 10)
     # env2 = GathererState(gr = 4,gc = 4,vis=5,nagents=2,boxsize=boxsize,spawn_limit = 5)
     # env3 = GathererState(gr = 20,gc=20,vis=5,nagents=2,boxsize=boxsize,spawn_limit=25)
-    environments = [env,env1,env2,env3]
+
+    # environments = [env,env1,env2,env3,env4,env5,env6,env7]
+    n_envs = 4 
+    environments = [GathererState(gr=20,gc=20,vis=5,nagents=na,boxsize=boxsize,spawn_limit=10) for i in range(n_envs)]
     # environments = [env]
 
     model = StateRAgent(input_size=100,state_size=3,containers=len(environments))
