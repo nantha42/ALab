@@ -1,4 +1,3 @@
-from os import environ
 import torch as T
 from torch.distributions.categorical import Categorical
 from tqdm import tqdm
@@ -8,63 +7,253 @@ import time
 from .utils import RLGraph
 
 
-class Trainer:
+class LSTMTrainer:
     def __init__(self, model,
                  learning_rate=0.001):
         self.model = model
         self.learning_rate = learning_rate
         self.optimizer = T.optim.Adam(
             self.model.parameters(), lr=learning_rate)
-        self.rewards = []
-        self.log_probs = []
+        self.data = []
 
-    def store_records(self, reward, log_prob):
-        self.rewards.append(reward)
-        self.log_probs.append(log_prob)
-        # print("S",self.log_probs)
+    def store_records(self, transition):
+        self.data.append(transition)
 
-    def clear_memory(self):
-        self.rewards = []
-        self.log_probs = []
+    def make_batch(self):
+        s_lst, a_lst, r_lst, s_prime_lst, prob_a_lst, h_in_lst, h_out_lst, done_lst = [
+        ], [], [], [], [], [], [], []
+        for T in self.data:
+            s, a, r, s_prime, prob_a, h_in, h_out, done = T
+            s_lst.append(s)
+            a_lst.append([a])
+            r_lst.append([r])
+            s_prime_lst.append(s_prime)
+            prob_a_lst.append([prob_a])
+            h_in_lst.append(h_in)
+            h_out_lst.append(h_out)
+            done_mask = 0 if done else 1
+            done_lst.append([done_mask])
+
+        s, a, r, s_prime, done_mask, prob_a = torch.tensor(s_lst, dtype=torch.float), torch.tensor(a_lst), \
+            torch.tensor(r_lst), torch.tensor(s_prime_lst, dtype=torch.float), \
+            torch.tensor(done_lst, dtype=torch.float), torch.tensor(prob_a_lst)
+
+        self.data = []
+        return s, a, r, s_prime, done_mask, prob_a, h_in_lst[0], h_out_lst[0]
+
+    def train_net(self):
+        s, a, r, s_prime, done_mask, prob_a, (h1_in,
+                                              h2_in), (h1_out, h2_out) = self.make_batch()
+        first_hidden = (h1_in.detach(), h2_in.detach())
+        second_hidden = (h1_out.detach(), h2_out.detach())
+        gamma = 0.99
+        for i in range(5):
+            v_prime = self.v(s_prime, second_hidden).squeeze(1)
+            td_target = r + gamma * v_prime * done_mask
+            v_s = self.v(s, first_hidden).squeeze(1)
+            delta = td_target - v_s
+            delta = delta.detach().numpy()
+
+
+class TrainerGRU:
+    def __init__(self, model,
+                 learning_rate=0.0001):
+        self.model = model
+        self.learning_rate = learning_rate
+        self.optimizer = T.optim.Adam(
+            self.model.parameters(), lr=learning_rate)
+        self.data = []
+
+    def store_records(self, transition):
+        self.data.append(transition)
+
+    def make_batch(self):
+        s_lst, a_lst, r_lst,  prob_a_lst, h_in_lst,  done_lst = [
+        ], [], [], [], [], []
+        for transition in self.data:
+            s, a, r,  prob_a, h_in,  done = transition
+            s_lst.append(s)
+            a_lst.append([a])
+            r_lst.append([r])
+            prob_a_lst.append([prob_a])
+            h_in_lst.append(h_in)
+            done_mask = 0 if done else 1
+            done_lst.append([done_mask])
+
+        s, a, r,  done_mask, prob_a = T.tensor(s_lst, dtype=T.float), T.tensor(a_lst), \
+            T.tensor(r_lst), \
+            T.tensor(done_lst, dtype=T.float), T.tensor(prob_a_lst)
+
+        self.data = []
+        return s, a, r,  done_mask, prob_a, h_in_lst[0]
 
     def update(self):
-        discounted_rewards = []
-        # GAMMA = 0.99
-        # for t in range(len(self.rewards)):
-        #     Gt = 0
-        #     pw = 0
-        #     for r in self.rewards[t:]:
-        #         Gt = Gt + GAMMA**pw * r
-        #         pw = pw + 1
-        #     discounted_rewards.append(Gt)
-        self.rewards = T.tensor(self.rewards).float()
-        # print("REWRDS ",self.rewards.shape)
-        self.log_probs = T.stack(self.log_probs,dim=0)
-        Gt = 0
+        s, a, r,  done_mask, prob_a, (h1_in) = self.make_batch()
+        hidden = h1_in.detach()
         gamma = 0.99
-        for t in reversed(range(len(self.rewards))):
-            Gt = self.rewards[t] + gamma*Gt
-            discounted_rewards.append(Gt)
+
+        k_epoch = 8
+        for i in range(k_epoch):
+            discounted_rewards = []
+            Gt = 0
+            for t in reversed(range(len(r))):
+                Gt = r[t] + done_mask[t]*gamma*Gt
+                discounted_rewards.append(Gt)
+
+            discounted_rewards.reverse()
+            discounted_rewards = T.tensor(discounted_rewards, dtype=T.float)
+            discounted_rewards = (discounted_rewards - discounted_rewards.mean()) / (
+                discounted_rewards.std() + 1e-9)  # normalize discounted rewards
+            # PROBLEM POSSIBLE OVERWRITING HIDDEN CAN DESTROY THE GRADIENT OF HIDDEN
+            self.model.hidden = hidden
+            pi = self.model.forward(s)
+            pi_a = pi.squeeze(1).gather(1, a)
+            ratio = T.exp(T.log(pi_a) - T.log(prob_a))
+
+            surr1 = ratio * discounted_rewards
+            eps_clip = 0.1
+            surr2 = T.clamp(ratio, 1-eps_clip, 1+eps_clip)*discounted_rewards
+            loss = -T.min(surr1, surr2)
+            self.optimizer.zero_grad()
+            loss = loss.mean()
+            print("LOSS: ", loss.item())
+            loss.backward()
+            self.optimizer.step()
+
+
+class TrainerNOGRU:
+    def __init__(self, model,
+                 learning_rate=0.0001):
+        self.model = model
+        self.learning_rate = learning_rate
+        self.optimizer = T.optim.Adam(
+            self.model.parameters(), lr=learning_rate)
+        self.data = []
+
+    def store_records(self, transition):
+        self.data.append(transition)
+
+    def make_batch(self):
+        s_lst, a_lst, r_lst,  prob_a_lst, h_in_lst,  done_lst = [
+        ], [], [], [], [], []
+        for transition in self.data:
+            s, a, r,  prob_a, h_in,  done = transition
+            s_lst.append(s)
+            a_lst.append([a])
+            r_lst.append([r])
+            prob_a_lst.append(prob_a)
+            h_in_lst.append(h_in)
+            done_mask = 0 if done else 1
+            done_lst.append([done_mask])
+        # print("PROB A LIST",prob_a_lst)
+        s, a, r,  done_mask, prob_a = T.tensor(s_lst, dtype=T.float), T.tensor(a_lst), \
+            T.tensor(r_lst), \
+            T.tensor(done_lst, dtype=T.float), T.tensor(prob_a_lst)
+        self.data = []
+        # print("AFTER",prob_a)
+        return s, a, r,  done_mask, prob_a, []
+
+    def update(self):
+        s, a, r,  done_mask, prob_a, (h1_in) = self.make_batch()
+        gamma = 0.99
+        k_epoch = 4
+        for i in range(k_epoch):
+            discounted_rewards = []
+            Gt = 0
+            for t in reversed(range(len(r))):
+                Gt = r[t] + done_mask[t]*gamma*Gt
+                discounted_rewards.append(Gt)
+            discounted_rewards.reverse()
+            discounted_rewards = T.tensor(discounted_rewards, dtype=T.float)
+            discounted_rewards = (discounted_rewards - discounted_rewards.mean()) / (
+                discounted_rewards.std() + 1e-9)  # normalize discounted rewards
+
+            pi = self.model.forward(s)
+            pi_a = pi.squeeze(1).gather(1, a)
+
+            ratio = T.exp(T.log(pi_a) - T.log(prob_a))
+            surr1 = ratio * discounted_rewards
+            eps_clip = 0.2
+            surr2 = T.clamp(ratio, 1-eps_clip, 1+eps_clip)*discounted_rewards
+            loss = -T.min(surr1, surr2)
+
+            self.optimizer.zero_grad()
+            # loss = gradient.sum()
+            print("LOSS: ", loss.mean().item())
+            loss.mean().backward(retain_graph=True)
+
+            # policy_gradient = T.stack(policy_gradient).sum()
+            # policy_gradient.backward()
+            self.optimizer.step()
+
+
+class TrainerNOGRU_V(TrainerNOGRU):
+    def __init__(self, model, learning_rate=0.001):
+        super().__init__(model, learning_rate)
+
+    def make_batch(self):
+        s_lst, a_lst, v_lst, r_lst,  prob_a_lst, _,  done_lst = [
+        ], [], [], [], [], [], []
+        for transition in self.data:
+            s, a, v, r, prob_a, h_in,  done = transition
+            s_lst.append(s)
+            a_lst.append([a])
+            v_lst.append([v])
+            r_lst.append([r])
+            prob_a_lst.append(prob_a)
+            done_mask = 0 if done else 1
+            done_lst.append([done_mask])
+        # print("PROB A LIST",prob_a_lst)
+        s, a, v, r,  done_mask, prob_a = T.tensor(s_lst, dtype=T.float), T.tensor(a_lst), T.tensor(v_lst),\
+            T.tensor(r_lst), \
+            T.tensor(done_lst, dtype=T.float), T.tensor(prob_a_lst)
+        self.data = []
+        # print("AFTER",prob_a)
+        return s, a, v, r,  done_mask, prob_a, []
+
+    def update(self):
+        s, a, v, r,  done_mask, prob_a, (h1_in) = self.make_batch()
+        gamma = 0.99
+        k_epoch = 4
+        discounted_rewards = []
+        Gt = 0
+        for t in reversed(range(len(r))):
+            Gt = r[t] + done_mask[t]*gamma*Gt
+            discounted_rewards.append([Gt])
 
         discounted_rewards.reverse()
-        discounted_rewards = T.stack(discounted_rewards,dim=0)
+        discounted_rewards = T.tensor(discounted_rewards, dtype=T.float)
+        print("SHAPE",discounted_rewards.shape,v.shape)
+        advantage = discounted_rewards - v
+        # discounted_rewards = (discounted_rewards - discounted_rewards.mean()) / (
+            # discounted_rewards.std() + 1e-9)  # normalize discounted rewards
 
-        # print("DIS element",discounted_rewards[0].shape)
-        # print("DIS SHAPE",discounted_rewards)
-        # print("LOG PROB SHAPE",self.log_probs.shape)
-        # print("LOG PROB",self.log_probs)
+        # advantage = (advantage - advantage.mean()) / (
+            #   advantage.std() + 1e-9)  # normalize discounted rewards
 
-        discounted_rewards = T.tensor(discounted_rewards)
-        discounted_rewards = (discounted_rewards - discounted_rewards.mean()) / (
-            discounted_rewards.std() + 1e-9)  # normalize discounted rewards
-        policy_gradient = []
-        for log_prob, Gt in zip(self.log_probs, discounted_rewards):
-            policy_gradient.append(-log_prob * Gt)
-        self.optimizer.zero_grad()
-        # print("Length",len(policy_gradient))
-        policy_gradient = T.stack(policy_gradient).sum()
-        policy_gradient.backward()
-        self.optimizer.step()
+        for i in range(k_epoch):
+
+            pi,values = self.model.forward(s)
+            pi_a = pi.squeeze(1).gather(1, a)
+
+            ratio = T.exp(T.log(pi_a) - T.log(prob_a))
+            surr1 = ratio * advantage 
+            eps_clip = 0.1
+            surr2 = T.clamp(ratio, 1-eps_clip, 1+eps_clip)*advantage
+            loss = -T.min(surr1, surr2).mean()
+            print("AD Shape",advantage.shape,values.shape)
+            critic_loss = 0.5*(advantage - values)**2
+            critic_loss = critic_loss.mean()
+
+            self.optimizer.zero_grad()
+            # loss = gradient.sum()
+            print("LOSS: ", loss.mean().item()," CRITIC :",critic_loss.item())
+            total_loss = loss + critic_loss
+            total_loss.mean().backward(retain_graph=True)
+            # policy_gradient = T.stack(policy_gradient).sum()
+            # policy_gradient.backward()
+            self.optimizer.step()
+
 
 
 class Runner:
@@ -448,6 +637,8 @@ class Simulator(Runner):
         if hasattr(self.model, "type") and self.model.type == "mem":
             print("Recurrent Model")
             reset_model = True
+        assert not hasattr(
+            self.model, "hidden_states"), "no hidden_states list attribute"
         self.env.display_neural_image = self.visual_activations
 
         for _ in range(episodes):
@@ -464,23 +655,32 @@ class Simulator(Runner):
             trewards = 0
 
             for step in bar:
-                if self.env.game_done:
-                    break
+                # if self.env.game_done:
+                #     break
                 state = T.from_numpy(state).float()
-                actions = self.model(state)
-
+                # print(state)
+                actions = self.model(state).view(-1)
+                # print(actions)
                 c = Categorical(actions)
                 action = c.sample()
-                log_prob = c.log_prob(action)
+                prob = c.probs[action]
 
+                # print(actions,prob)
                 u = np.zeros(self.nactions)
                 u[action] = 1.0
                 newstate, reward = self.env.act(u)
-                state = newstate.reshape(-1)
                 trewards += reward
                 self.episode_rewards.append(trewards)
                 if train:
-                    self.trainer.store_records(reward, log_prob)
+                    if self.model.type == "mem":
+                        self.trainer.store_records(
+                            (state.tolist(), action, reward, prob, self.model.hidden_states[-2], False))
+                    else:
+                        self.trainer.store_records(
+                            (state.tolist(), action, reward, prob, [], False))
+                    # self.trainer.store_records((state.tolist(),action,reward, c.log_prob(action),self.model.hidden_states[-2], False))
+
+                state = newstate.reshape(-1)
                 if self.model.type == "mem" and self.visual_activations:
                     u = T.cat(self.activations, dim=0).reshape(-1)
                     self.neural_image_values = u.detach().numpy()
@@ -489,81 +689,54 @@ class Simulator(Runner):
                         self.update_weights()
                         self.neural_weights = self.weights
                         self.weight_change = True
-                    if self.model.type == "mem" and type(self.model.hidden_vectors) != type(None):
+                    if type(self.model.hidden_vectors) != type(None):
                         self.hidden_state = self.model.hidden_vectors
+                else:
+                    self.activations = []
 
                 bar.set_description(f"Episode: {_:4} Rewards : {trewards}")
                 if train:
                     self.env.step()
                 else:
                     self.env.step(speed=0)
+
                 self.event_handler()
                 self.window.fill((0, 0, 0))
                 if self.visual_activations and (not train or _ % render_once == render_once-1):
-                    self.draw_neural_image()
-                self.window.blit(self.env.win, (0, 0))
+                    if self.model.type == "mem":
+                        self.draw_neural_image()
+                    self.window.blit(self.env.win, (0, 0))
 
             if train:
                 self.trainer.update()
-                self.trainer.clear_memory()
                 self.recorder.newdata(trewards)
                 if _ % saveonce == saveonce-1:
                     self.recorder.save()
                     self.recorder.plot()
+
                 if _ % saveonce == saveonce-1 and self.recorder.final_reward >= self.current_max_reward:
                     self.recorder.save_model(self.model)
                     self.current_max_reward = self.recorder.final_reward
         print("******* Run Complete *******")
 
 
-class MultiAgentRunner:
-    def __init__(self, models, environment, trainers, nactions=6, log_message=None, visual_activations=False):
-        self.env = environment
-        self.models = models
-        self.trainers = trainers
-        self.nactions = nactions
-        self.recorders = []
-        for m in range(len(self.models)):
-            self.recorders.append(RLGraph())
-            self.recorders[m].log_message = log_message
-            self.recorders[m].save_log()
-        self.activations = []
-        self.weights = []
-        self.visual_activations = visual_activations
-        self.current_max_reward = 0
-
-        # TODO add the hook inside the model itself
-
-        # if visual_activations:
-        #     def hook_fn(m,i,o):
-        #         if type(o) == type((1,)):
-        #             for u in o:
-        #                 activation.append(u.reshape(-1))
-        #         else:
-        #             activation.append(o.reshape(-1))
-
-        #     for model in self.models:
-        #         activation = []
-        #         for n,l in model._modules.items():
-        #             l.register_forward_hook(hook_fn)
-
-    def update_weights(self):
-        self.weights = []
-        for model in self.models:
-            wghts = []
-            for param in model.parameters():
-                wghts.append(T.tensor(param).clone().detach().reshape(-1))
-            wghts = T.cat(wghts, dim=0).numpy()
-            print("weights shape", wghts.shape)
-
-
-class MultiAgentSimulator(MultiAgentRunner):
-    def __init__(self, models, environment, trainers, nactions=6, log_message=None, visual_activations=False):
-        super().__init__(models, environment, trainers, nactions=nactions,
+class Simulator(Runner):
+    def __init__(self, model, environment, trainer, nactions=6, log_message=None, visual_activations=False):
+        super().__init__(model, environment, trainer, nactions=nactions,
                          log_message=log_message, visual_activations=visual_activations)
-
         py.init()
-        self.initiate_window(environment,visual_activations)
+        extra_width = 300
+        env_w = environment.win.get_width()
+        env_h = environment.win.get_height()
+        if visual_activations:
+            self.w = 50 + env_w + extra_width
+        else:
+            self.w = 50 + env_w
+        self.h = 50 + env_h
+
+        self.font = py.font.SysFont("times", 10)
+        self.window = py.display.set_mode((self.w, self.h), py.DOUBLEBUF, 32)
+        self.window.set_alpha(128)
         self.clock = py.time.Clock()
         self.enable_draw = True
 
@@ -579,21 +752,6 @@ class MultiAgentSimulator(MultiAgentRunner):
         self.neural_weight_surface = None
         self.weight_change = False
 
-    def initiate_window(self,environment,visual_activations):
-        extra_width = 300
-        env_w = environment.win.get_width()
-        env_h = environment.win.get_height()
-
-        if visual_activations:
-            self.w = 50 + env_w + extra_width
-        else:
-            self.w = 50 + env_w
-
-        self.h = 50 + env_h
-        self.font = py.font.SysFont("times", 10)
-        self.window = py.display.set_mode((self.w, self.h), py.DOUBLEBUF, 32)
-        self.window.set_alpha(128)
- 
     def render_text(self, surf, text, pos):
         text = self.font.render(text, True, (200, 200, 200))
         trect = text.get_rect()
@@ -670,52 +828,32 @@ class MultiAgentSimulator(MultiAgentRunner):
 
     def surf_neural_activation(self):
         """ Returns a Drawn surface for neural activation"""
+
         assert type(self.neural_image_values) == type(
-            []), "neural_image_values should be in list"
-        act_surfaces = []
-        for neural_image in self.neural_image_values:
-            varr = neural_image
-            varr = varr.reshape(-1)
-            l = int(np.sqrt(varr.shape[0]))
-            varr = varr[-l*l:].reshape((l, l))
-            sz = 4
-            activ_surf = py.Surface((l*sz+5, l*sz+5))
-            maxi = np.max(varr)
-            mini = np.min(varr)
-            poslimit, neglimit = self.calculate_limits(maxi, mini)
-            for r in range(l):
-                for c in range(l):
-                    av = varr[r][c]
-                    cr, cg = self.calculate_color(
-                        av, maxi, mini, poslimit, neglimit)
-                    colorvalue = (abs(cr), abs(cg), max(abs(cr), abs(cg)))
-                    py.draw.rect(activ_surf, colorvalue,
-                                 (10+c*sz, 10+r*sz, sz, sz))
-            act_surfaces.append(activ_surf)
+            np.array([])), "neural_image_values should be in numpy array"
 
-        # n_surfaces = len(act_surfaces)
-        # w,h = act_surfaces[0].get_width(), act_surfaces[0].get_height()
-        # panel_width = 250
-        # rows_count = n_surfaces*(w+5)//panel_width
-        # if rows_count==0: rows_count = 1
+        points = []
+        varr = self.neural_image_values
 
-        n_surfaces = len(act_surfaces)
-        w, h = act_surfaces[0].get_width(), act_surfaces[0].get_height()
-        panel_width = 250
-        rows_count = (w+5)*n_surfaces//panel_width
-        if rows_count == 0:
-            rows_count = 1
-        col_count = (w+5)*n_surfaces//rows_count
-        panel = py.Surface(((w+5)*(col_count), (h+5)*rows_count))
-        r, c = 0, 0
-        for i in range(len(act_surfaces)):
-            panel.blit(act_surfaces[i], (r, c))
-            r += w+5
-            if r >= panel_width:
-                r = 0
-                c += (h+5)
-        return panel, (panel.get_width(), panel.get_height())
-        # return activ_surf,(activ_surf.get_width(),activ_surf.get_height())
+        varr = varr.reshape(-1)
+        l = int(np.sqrt(varr.shape[0]))
+        varr = varr[-l*l:].reshape((l, l))
+
+        sz = 10
+        activ_surf = py.Surface((l*sz+20, l*sz+20))
+        maxi = np.max(varr)
+        mini = np.min(varr)
+
+        poslimit, neglimit = self.calculate_limits(maxi, mini)
+        for r in range(l):
+            for c in range(l):
+                av = varr[r][c]
+                cr, cg = self.calculate_color(
+                    av, maxi, mini, poslimit, neglimit)
+                colorvalue = (abs(cr), abs(cg), max(abs(cr), abs(cg)))
+                py.draw.rect(activ_surf, colorvalue,
+                             (10+c*sz, 10+r*sz, sz, sz))
+        return activ_surf, (activ_surf.get_width(), activ_surf.get_height())
 
     def surf_hidden_activation(self):
         if type(self.hidden_state) != type(None):
@@ -725,6 +863,7 @@ class MultiAgentSimulator(MultiAgentRunner):
             sz = 2
             state_surface = py.Surface((c*sz, r*sz))
             swidth = state_surface.get_width()
+
             poslimit, neglimit = self.calculate_limits(maxi, mini)
             for i in range(c):
                 for j in range(r):
@@ -734,9 +873,11 @@ class MultiAgentSimulator(MultiAgentRunner):
                     colorvalue = (abs(cr), abs(cg), max(abs(cr), abs(cg)))
                     py.draw.rect(state_surface, colorvalue,
                                  (i*sz, j*sz, sz, sz))
+
             self.hidden_state_surfaces.append(state_surface)
             if len(self.hidden_state_surfaces) > 330/swidth-3*swidth:
                 self.hidden_state_surfaces = self.hidden_state_surfaces[1:]
+
             l = len(self.hidden_state_surfaces)
             surf_w = self.hidden_state_surfaces[0].get_width()
             surf_h = self.hidden_state_surfaces[0].get_height()
@@ -744,7 +885,6 @@ class MultiAgentSimulator(MultiAgentRunner):
             for i in range(l):
                 full_surf.blit(
                     self.hidden_state_surfaces[i], (10+i*surf_w, 10))
-
             return full_surf, (full_surf.get_width(), full_surf.get_height())
 
     def surf_neural_weights(self):
@@ -753,6 +893,7 @@ class MultiAgentSimulator(MultiAgentRunner):
             if self.neural_layout == None:
                 self.neural_layout, self.neural_layout_size = self.create_pack(
                     self.neural_weights)
+
             pix_size, gaps = self.neural_layout_size
             gap_size = 1
             sz = 1
@@ -788,53 +929,6 @@ class MultiAgentSimulator(MultiAgentRunner):
         else:
             return self.neural_weight_surface
 
-    def surf_create_graph_multi(self, values, x_label, y_value, width, colors):
-        wid, hei = width, 150
-        surf_size = (wid, hei)
-        surf = py.Surface(surf_size)
-        length = len(values[0])
-        text = self.font.render(x_label, True, (200, 200, 200))
-        mark_text = self.font.render(y_value, True, (200, 200, 200))
-        maxi = np.max(values)
-        mini = np.min(values)
-        polys = []
-
-        for val, col in zip(values, colors):
-            poly = []
-            # print(val)
-            for i in range(0, length, max(1, int(length/wid-10))):
-                v = val[i]
-                x = (i/length)*(wid-10)
-                if (maxi-mini) != 0:
-                    y = (hei - text.get_height()) - ((hei-10)/(maxi - mini))*v
-                else:
-                    y = (hei - text.get_height())
-                poly.append((x, y))
-            line_poly = list(poly)
-            polys.append(poly)
-            # if len(poly)> 1:
-            #     py.draw.lines(surf,col,False,poly,3)
-
-        polys.sort(key=lambda x: (x[-1]))
-
-        for poly, col in zip(polys, colors):
-            poly.append((poly[-1][0], poly[0][1]))
-            if len(poly) > 2:
-                r, g, b = col
-                dv = 50
-                p_col = [r - min(dv, r), g-min(dv, g), b-min(dv, b)]
-                py.draw.polygon(surf, p_col, poly, 0)
-            if len(poly) > 1:
-                py.draw.lines(surf, col, False, poly, 3)
-
-        trect = text.get_rect()
-        trect.topright = (text.get_width(), hei-text.get_height())
-        surf.blit(text, trect)
-        trect = mark_text.get_rect()
-        trect.topleft = (0, 0)
-        surf.blit(mark_text, trect)
-        return surf
-
     def surf_create_graph(self, values, x_label, y_value, width):
         wid, hei = width, 150
         surf_size = (wid, hei)
@@ -864,9 +958,12 @@ class MultiAgentSimulator(MultiAgentRunner):
         trect = text.get_rect()
         trect.topright = (text.get_width(), hei-text.get_height())
         surf.blit(text, trect)
+
         trect = mark_text.get_rect()
         trect.topleft = (0, 0)
         surf.blit(mark_text, trect)
+
+        # py.draw.circle(surf,(0,255,255),(x,y),1)
         return surf
 
     def draw_episode_reward(self, w=150):
@@ -875,33 +972,19 @@ class MultiAgentSimulator(MultiAgentRunner):
             self.episode_rewards, "steps", y_value, width=w)
         return surf
 
-    def draw_episode_rewards(self, w=250):
-        # print(np.array(self.episode_rewards).shape)
-        y_value = "R: " + str(np.max(self.episode_rewards[-1]))
-        f = 255
-        colors = []
-        for agent in self.env.agents:
-            colors.append(agent.color)
-        reshaped = np.array(self.episode_rewards).squeeze(1).T
-        surf = self.surf_create_graph_multi(
-            reshaped, "steps", y_value, width=w, colors=colors)
-        return surf
-
     def draw_neural_image(self):
         panel = py.Surface((500, self.window.get_height()))
         surf_activation, asize = self.surf_neural_activation()
-        # surf_weights,wsize = self.surf_neural_weights()
-        # surf_hidden,hsize = self.surf_hidden_activation()
+        surf_weights, wsize = self.surf_neural_weights()
+        surf_hidden, hsize = self.surf_hidden_activation()
         panel.blit(surf_activation, (0, 0))
-        # if surf_weights is not None:
-        #     panel.blit(surf_weights,(asize[0],0))
-        # panel.blit(surf_hidden,(0,max(asize[1],wsize[1])))
-        surf_graph_1 = self.draw_episode_rewards(
-            w=(self.window.get_width() - self.env.win.get_width()-10))
-        # panel.blit(surf_graph_1, (0,max(asize[1],wsize[1])+ surf_hidden.get_height()+5) )
-        print("size", asize[1])
-        panel.blit(surf_graph_1, (0, asize[1] + 10))
-        self.window.blit(panel, (self.env.win.get_width()+10, 10))
+        if surf_weights is not None:
+            panel.blit(surf_weights, (asize[0], 0))
+        panel.blit(surf_hidden, (0, max(asize[1], wsize[1])))
+        surf_graph_1 = self.draw_episode_reward(w=hsize[0])
+        panel.blit(surf_graph_1, (0, max(
+            asize[1], wsize[1]) + surf_hidden.get_height()+5))
+        self.window.blit(panel, (500, 10))
 
     def event_handler(self):
         for event in py.event.get():
@@ -910,19 +993,15 @@ class MultiAgentSimulator(MultiAgentRunner):
                 exit()
 
     def run(self, episodes, steps, train=False, render_once=1e10, saveonce=10):
-        print(f"Episodes     : {episodes}   ")
-        print(f"Steps        : {steps}      ")
-        print(f"Training     : {train}      ")
-        print(f"Render Once  : {render_once}")
-        print(f"Save Once    : {saveonce}   ")
-
         if train:
-            assert self.recorders[0].log_message is not None, "log_message is necessary during training, Instantiate Runner with log message"
+            assert self.recorder.log_message is not None, "log_message is necessary during training, Instantiate Runner with log message"
 
         reset_model = False
-        if hasattr(self.models[0], "type") and self.models[0].type == "mem":
+        if hasattr(self.model, "type") and self.model.type == "mem":
             print("Recurrent Model")
             reset_model = True
+        assert not hasattr(
+            self.model, "hidden_states"), "no hidden_states list attribute"
         self.env.display_neural_image = self.visual_activations
 
         for _ in range(episodes):
@@ -931,80 +1010,54 @@ class MultiAgentSimulator(MultiAgentRunner):
             self.env.enable_draw = True if not train or _ % render_once == render_once-1 else False
 
             if reset_model:
-                for model in self.models:
-                    model.reset()
+                self.model.reset()
 
-            states = []
-            for i in range(len(self.env.agents)):
-                state = self.env.get_state(i)
-                states.append(state)
-
+            state = self.env.get_state().reshape(-1)
             bar = tqdm(
                 range(steps), bar_format='{l_bar}{bar:10}{r_bar}{bar:-10b}')
-            trewards = np.zeros((1, len(self.models)))
+            trewards = 0
+
             for step in bar:
-                # print("-----------------")
-                # print("Logs probs 0",len(self.trainers[0].log_probs),len(self.trainers[1].log_probs))
-                if self.env.game_done:
-                    # print("Quitting game")
-                    break
-                action_vecs = []
-                log_probs = []
+                # if self.env.game_done:
+                #     break
+                state = T.from_numpy(state).float()
+                # print(state)
+                actions = self.model(state).view(-1)
+                # print(actions)
+                c = Categorical(actions)
+                action = c.sample()
+                prob = c.probs[action]
 
-                for ind in range(len(states)):
-                    state = T.from_numpy(states[ind]).float()
-                    actions = self.models[ind](state)
-                    c = Categorical(actions)
-                    action = c.sample()
-                    log_prob = c.log_prob(action)
-                    log_probs.append(log_prob)
-                    u = np.zeros(self.nactions)
-                    u[action] = 1.0
-                    action_vecs.append(u)
-
-                newstates, rewards = self.env.act(action_vecs)
-                states = newstates
-
-                # all_dead = True
-                # if train:
-                #     for j in range(len(newstates)):
-                #         if not self.env.agents[j].dead:
-                #             self.trainers[j].store_records(rewards[j],log_probs[j])
+                # print(actions,prob)
+                u = np.zeros(self.nactions)
+                u[action] = 1.0
+                newstate, reward = self.env.act(u)
+                trewards += reward
+                self.episode_rewards.append(trewards)
                 if train:
-                    for j in range(len(newstates)):
-                        self.trainers[j].store_records(
-                            rewards[j], log_probs[j])
-                        # all_dead = False
-                # print("Logs probs",len(self.trainers[0].log_probs),len(self.trainers[1].log_probs))
-                trewards += np.array(rewards)
-                states = newstates
-                # trewards += rewards
-                self.episode_rewards.append(trewards.tolist())
+                    if self.model.type == "mem":
+                        self.trainer.store_records(
+                            (state.tolist(), action, reward, prob, self.model.hidden_states[-2], False))
+                    else:
+                        self.trainer.store_records(
+                            (state.tolist(), action, reward, prob, [], False))
+                    # self.trainer.store_records((state.tolist(),action,reward, c.log_prob(action),self.model.hidden_states[-2], False))
 
-                if self.visual_activations:
-                    self.neural_image_values = []
-                    for model in self.models:
-                        activations = T.cat(
-                            model.activations, dim=0).reshape(-1)
-                        self.neural_image_values.append(
-                            activations.detach().numpy())
+                state = newstate.reshape(-1)
+                if self.model.type == "mem" and self.visual_activations:
+                    u = T.cat(self.activations, dim=0).reshape(-1)
+                    self.neural_image_values = u.detach().numpy()
+                    self.activations = []
+                    if _ % 10 == 0 and step/steps == 0:
+                        self.update_weights()
+                        self.neural_weights = self.weights
+                        self.weight_change = True
+                    if type(self.model.hidden_vectors) != type(None):
+                        self.hidden_state = self.model.hidden_vectors
+                else:
+                    self.activations = []
 
-                    # u = T.cat(self.activations,dim=0).reshape(-1)
-                    # self.neural_image_values = u.detach().numpy()
-                    # self.activations = []
-                    # if _ % 10 == 0 and step/steps == 0:
-                    #     self.update_weights()
-                    #     self.neural_weights = self.weights
-                    #     self.weight_change = True
-                    # if type(self.model.hidden_vectors) != type(None):
-                    #     self.hidden_state = self.model.hidden_vectors
-                reward_string = ""
-                for uu in range(len(trewards[0])):
-                    reward_string += str(trewards[0][uu])
-                    reward_string += " "
-                bar.set_description(
-                    f"Episode: {_:4} Rewards : {reward_string} ")
-                # print("Logs probs 1",len(self.trainers[0].log_probs),len(self.trainers[1].log_probs))
+                bar.set_description(f"Episode: {_:4} Rewards : {trewards}")
                 if train:
                     self.env.step()
                 else:
@@ -1012,278 +1065,112 @@ class MultiAgentSimulator(MultiAgentRunner):
 
                 self.event_handler()
                 self.window.fill((0, 0, 0))
-
                 if self.visual_activations and (not train or _ % render_once == render_once-1):
-                    self.draw_neural_image()
-
-                if not train or _ % render_once == render_once-1:
+                    if self.model.type == "mem":
+                        self.draw_neural_image()
                     self.window.blit(self.env.win, (0, 0))
 
-                # print("Logs probs 2",len(self.trainers[0].log_probs),len(self.trainers[1].log_probs))
-            # print("Calling Updates")
             if train:
-                for t in range(len(self.trainers)):
-                    self.trainers[t].update()
-                    self.trainers[t].clear_memory()
-                    self.recorders[t].newdata(trewards[0, t])
-                    self.recorders[t].save()
-                    self.recorders[t].plot()
-                    if _ % saveonce == saveonce - 1 and trewards[0, t] >= self.recorders[t].final_reward:
-                        self.recorders[t].save_model(self.models[t])
+                self.trainer.update()
+                self.recorder.newdata(trewards)
+                if _ % saveonce == saveonce-1:
+                    self.recorder.save()
+                    self.recorder.plot()
 
-                # self.trainer.update()
-                # self.trainer.clear_memory()
-                # self.recorder.newdata(trewards)
-                # if _ % saveonce == saveonce-1:
-                #     self.recorder.save()
-                #     self.recorder.plot()
-
-        #         if _ % saveonce == saveonce-1 and self.recorder.final_reward >= self.current_max_reward:
-        #             self.recorder.save_model(self.model)
-        #             self.current_max_reward = self.recorder.final_reward
+                if _ % saveonce == saveonce-1 and self.recorder.final_reward >= self.current_max_reward:
+                    self.recorder.save_model(self.model)
+                    self.current_max_reward = self.recorder.final_reward
         print("******* Run Complete *******")
 
 
-class Container:
-    def __init__(self, environment, models):
-        """args: environment, model"""
-
-        self.env = environment
-        self.models = models
-        self.hidden_states = None
-        self.trewards = 0
-        self.trainers = []
-        for m in self.models:
-            self.trainers.append(Trainer(m, learning_rate=0.01))
-        self.neural_activation = []
-
-    def reset(self):
-        """Resets the container and zeros the hiddenstate of the model"""
-        self.env.reset()
-        self.hidden_states = [T.zeros((1, 1, 64)) for _ in range(len(self.models))] 
-        self.states, self.agent_states = [],[]
-        for i in range(len(self.models)):
-            s,ags = self.env.get_state(i).reshape(-1), self.env.get_agent_state(i).reshape(-1)
-            self.states.append(s)
-            self.agent_states.append(ags)
-        
-        for model in self.models:
-            model.reset()
-
-        self.trewards = np.zeros((1, len(self.models)))
-        self.episode_rewards = []
-
-    # def update(self):
-    #     """Train the models with the collected trajectory data for the
-    #     given environment"""
-    #     for t in self.trainers:
-    #         t.update()
-    #         t.clear_memory()
-
-    def get_states(self):
-        return self.states,self.agent_states
-
-    def act(self,action_vecs):
-        combined,rewards = self.env.act(action_vecs)
-        self.trewards += np.array(rewards)
-        self.states, self.agent_states = combined[0],combined[1]
-
-        self.env.step()
-        return rewards
-
-
-    def step(self, train=True):
-        """Performs a single step over the environments with all the models"""
-        action_vecs = []
-        log_probs = []
-        for i in range(len(self.models)):
-            state = T.from_numpy(self.states[i]).float()
-            agent_state = T.from_numpy(self.agent_states[i]).float()
-            if hasattr(self.models[i], "type") and self.models[i].type == "mem":
-                self.models[i].hidden = self.hidden_states[i]
-
-            self.models[i].hidden = self.hidden_states[i]
-            actions = self.models[i](state, agent_state)
-            c = Categorical(actions)
-            action = c.sample()
-            log_prob = c.log_prob(action)
-            log_probs.append(log_prob)
-            u = np.zeros(self.models[i].output_size)
-            u[action] = 1.0
-            action_vecs.append(u)
-
-        combined, rewards = self.env.act(action_vecs)
-        self.trewards += np.array(rewards)
-        self.episode_rewards.append(self.trewards.tolist())
-        self.states,self.agent_statess = combined[:,0],combined[:,1]
-        if train:
-            for j in range(len(self.models)):
-                self.trainers[j].store_records(
-                    rewards[j],log_probs[j]
-                )
-        self.env.step()
-
-class MultiEnvironmentSimulator(MultiAgentSimulator):
-    def __init__(self, models, environments, nactions=6, log_message=None, visual_activations=False):
-        super().__init__(models, environments, None, nactions=nactions,
+class SimulatorV(Simulator):
+    def __init__(self, model, environment, trainer, nactions=6, log_message=None, visual_activations=False):
+        super().__init__(model, environment, trainer, nactions=nactions,
                          log_message=log_message, visual_activations=visual_activations)
-        nenvs = len(environments)
-        self.containers = [Container(x, models) for x in environments]
-        self.environments = environments  # StateGatherers with different states
-        self.simulation_speed = 0.0
-        self.trainers = [Trainer(m,learning_rate=0.01) for m in self.models]
-
-
-    def initiate_window(self,environments,visual_activations):
-        extra_width = 300
-        sw,sy = 0 ,0
-        max_h = []
-        overall_width = 500
-        for env in environments:
-            if sw + env.win.get_width() > overall_width:
-                sy += max(max_h) + 10
-                sw = env.win.get_width()
-                max_h = [env.win.get_height()]
-            else:
-                sw += env.win.get_width()
-                max_h.append(env.win.get_height())
-
-        env_w = overall_width 
-        env_h = sy + max(max_h)
-
-        if visual_activations:
-            self.w = 50 + env_w + extra_width
-        else:
-            self.w = 50 + env_w
-
-        self.h = 50 + env_h
-        self.font = py.font.SysFont("times", 10)
-        self.window = py.display.set_mode((self.w, self.h), py.DOUBLEBUF, 32)
-        self.window.set_alpha(128)
- 
-    def event_handler(self):
-        for event in py.event.get():
-            if event.type == py.QUIT:
-                py.quit()
-                exit()
-
-            if event.type == py.KEYDOWN:
-                if event.key == py.K_i:
-                    print("Speed INCREASE")
-                    if self.simulation_speed > 0:
-                        self.simulation_speed -= 0.1
-
-                if event.key == py.K_o:
-                    print("Speed DECREASE")
-                    self.simulation_speed += 0.1
-                
-                if self.simulation_speed < 0:
-                    self.simulation_speed = 0
-
-            if event.type == py.MOUSEBUTTONDOWN:
-                pass
-        
-
-    def visualize(self):
-        self.window.fill((0,0,0))
-        initial = [10,10]
-        positions = [initial]
-        for i in range(len(self.containers)-1):
-            w,h = self.containers[i].env.win.get_width(),self.containers[i].env.win.get_height()
-            lx,ly = positions[-1]
-            # if lx + w > 250:
-            if lx + w > 500:
-                positions.append([10,ly+h+10])
-            else: 
-                positions.append([lx+w+10,ly])
-
-        for cont,pos in zip(self.containers,positions):
-            self.window.blit(cont.env.win,pos)
-        py.display.update()
 
     def run(self, episodes, steps, train=False, render_once=1e10, saveonce=10):
         if train:
-            assert self.recorders[0].log_message is not None, "log_message is necessary during training, Instantiate Runner with log message"
+            assert self.recorder.log_message is not None, "log_message is necessary during training, Instantiate Runner with log message"
 
-        for c in self.containers:
-            c.env.display_neural_image = self.visual_activations
+        reset_model = False
+        if hasattr(self.model, "type") and self.model.type == "mem":
+            print("Recurrent Model")
+            reset_model = True
+        assert not hasattr(
+            self.model, "hidden_states"), "no hidden_states list attribute"
+        self.env.display_neural_image = self.visual_activations
+
         for _ in range(episodes):
-            for c in self.containers:
-                c.reset()
+            self.episode_rewards = []
+            self.env.reset()
+            self.env.enable_draw = True if not train or _ % render_once == render_once-1 else False
 
-            trewards = [] 
-            for j in range(len(self.models)):
-                trewards.append([0 for p in range(len(self.containers))])
-            trewards = np.array(trewards)            
-            tqdm_steps = tqdm(range(steps), bar_format='{l_bar}{bar:10}{r_bar}{bar:-10b}')
-            for step in tqdm_steps: 
-                self.event_handler()
-                states_of_models = []
-                agent_states_of_models = []
-                for c in self.containers:
-                    state, agent_state = c.get_states() # contains multiple agents states stacked
-                    # state = [
-                    #     [0,0,0],   model 1
-                    #     [0,0,0],   model 2
-                    # 
-                    states_of_models.append(state)
-                    agent_states_of_models.append(agent_state)
+            if reset_model:
+                self.model.reset()
 
-                states_of_models = np.transpose(np.array(states_of_models),axes=(1,0,2))
-                agent_states_of_models = np.transpose(np.array(agent_states_of_models),axes=(1,0,2))
+            state = self.env.get_state().reshape(-1)
+            bar = tqdm(
+                range(steps), bar_format='{l_bar}{bar:10}{r_bar}{bar:-10b}')
+            trewards = 0
 
-                action_vecs = []
-                log_probs = []
-                for i in range(len(self.models)):
-                    state = T.from_numpy(states_of_models[i]).float()
-                    agent_state = T.from_numpy(agent_states_of_models[i]).float()
-                    actions = self.models[i](state,agent_state).squeeze(0)
-                    # print("Actions",actions)
-                    c = Categorical(actions)
-                    action = c.sample() 
-                    log_prob = c.log_prob(action)
-                    # print("LOG prob: ",log_prob)
-                    log_probs.append(log_prob)
+            for step in bar:
+                state = T.from_numpy(state).float()
+                actions, value = self.model(state)
+                actions = actions.view(-1)
 
-                    # print("TTTTT",action)
-                    u = T.eye(self.models[i].output_size)
-                    onehot = u[action]
-                    # print("UUUU",onehot)
-                    action_vecs.append(onehot.numpy())
+                c = Categorical(actions)
+                action = c.sample()
+                prob = c.probs[action]
 
-                action_vecs = np.array(action_vecs)
-                # print("Shape of actionvec: ",action_vecs.shape)
-                # print("REW1233",action_vecs.shape) 
-                action_vecs = np.transpose(action_vecs,axes=(1,0,2))
-                # print("Shape of actionvec: ",action_vecs.shape)
-                rewards = []
-                for i in range(len(self.containers)):
-                    # print("Passing ",action_vecs[i].shape)
-                    reward = self.containers[i].act(action_vecs[i])
-                    rewards.append(reward)
-                # print("REW",np.array(rewards).shape) 
-                rewards = np.transpose(np.array(rewards),axes=(1,0))
-                # print("REW!",action_vecs.shape,rewards.shape)
-                tqdm_steps.set_description(f"Episode: {_:4}")
-                for j in range(len(self.trainers)):
-                    trewards[j] += rewards[j]
+                u = np.zeros(self.nactions)
+                u[action] = 1.0
+                newstate, reward = self.env.act(u)
+                trewards += reward
+                self.episode_rewards.append(trewards)
                 if train:
-                    # print("REW!",np.array(log_probs).shape,rewards.shape)
-                    for j in range(len(self.trainers)):
-                        # print("STORING ",log_probs[j])
-                        self.trainers[j].store_records(rewards[j],log_probs[j])
+                    if self.model.type == "mem":
+                        self.trainer.store_records(
+                            (state.tolist(), action, value, reward, prob, self.model.hidden_states[-2], False))
+                    else:
+                        self.trainer.store_records(
+                            (state.tolist(), action, value, reward, prob, [], False))
+                    # self.trainer.store_records((state.tolist(),action,reward, c.log_prob(action),self.model.hidden_states[-2], False))
+
+                state = newstate.reshape(-1)
+                if self.model.type == "mem" and self.visual_activations:
+                    u = T.cat(self.activations, dim=0).reshape(-1)
+                    self.neural_image_values = u.detach().numpy()
+                    self.activations = []
+                    if _ % 10 == 0 and step/steps == 0:
+                        self.update_weights()
+                        self.neural_weights = self.weights
+                        self.weight_change = True
+                    if type(self.model.hidden_vectors) != type(None):
+                        self.hidden_state = self.model.hidden_vectors
                 else:
-                    time.sleep(self.simulation_speed)
-                self.visualize()
+                    self.activations = []
+
+                bar.set_description(f"Episode: {_:4} Rewards : {trewards}")
+                if train:
+                    self.env.step()
+                else:
+                    self.env.step(speed=0)
+
+                self.event_handler()
+                self.window.fill((0, 0, 0))
+                if self.visual_activations and (not train or _ % render_once == render_once-1):
+                    if self.model.type == "mem":
+                        self.draw_neural_image()
+                    self.window.blit(self.env.win, (0, 0))
 
             if train:
-                for j in range(len(self.trainers)):
-                    self.trainers[j].update()
-                    self.trainers[j].clear_memory()
+                self.trainer.update()
+                self.recorder.newdata(trewards)
+                if _ % saveonce == saveonce-1:
+                    self.recorder.save()
+                    self.recorder.plot()
 
-                    self.recorders[j].newdata(trewards[j])
-                    self.recorders[j].save()
-                    self.recorders[j].plot()
-                    self.recorders[j].save_model(self.models[j])
-
-          
+                if _ % saveonce == saveonce-1 and self.recorder.final_reward >= self.current_max_reward:
+                    self.recorder.save_model(self.model)
+                    self.current_max_reward = self.recorder.final_reward
+        print("******* Run Complete *******")
