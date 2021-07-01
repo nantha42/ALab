@@ -42,9 +42,19 @@ class Trainer:
         self.log_probs = T.stack(self.log_probs,dim=0)
         Gt = 0
         gamma = 0.99
+        DEP_FACTOR = 20 # 500/20 = 25
+        l = len(self.rewards)/DEP_FACTOR    
+        a = 0
         for t in reversed(range(len(self.rewards))):
+#            a+=1
+#            if a == l:
+#                a = 0
+#                Gt = 0
+#            if self.rewards[t]<0:
+                
             Gt = self.rewards[t] + gamma*Gt
             discounted_rewards.append(Gt)
+        
 
         discounted_rewards.reverse()
         discounted_rewards = T.stack(discounted_rewards,dim=0)
@@ -1274,7 +1284,8 @@ class MultiEnvironmentSimulator(MultiAgentSimulator):
                         self.trainers[j].store_records(rewards[j],log_probs[j])
                 else:
                     time.sleep(self.simulation_speed)
-                self.visualize()
+                if self.visual_activations:
+                    self.visualize()
 
             if train:
                 for j in range(len(self.trainers)):

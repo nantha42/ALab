@@ -37,7 +37,9 @@ class StateRAgent(nn.Module):
         #inputsize, hiddensize, num_layers
         self.gru = nn.GRU(64+5, 64, 1) # hidden size + embedding dimension
         self.layers = nn.Sequential(
-            nn.Linear(64, output_size),
+            nn.Linear(64, 32),
+            nn.ReLU(),
+            nn.Linear(32,output_size),
             nn.Softmax(dim=-1)
         )
         self.type = "mem"
@@ -73,6 +75,61 @@ class StateRAgent(nn.Module):
         x, self.hidden = self.gru(x, self.hidden)
         self.hidden_states.append(self.hidden)
         self.hidden_vectors = self.hidden.detach().clone().squeeze(0).numpy()
+        o = self.layers(x)
+        return o
+
+
+class StateAgent(nn.Module):
+    def __init__(self, input_size,state_size,output_size=6,containers=1):
+        super().__init__()
+        self.input_size = input_size
+        self.state_size= state_size 
+        self.output_size = output_size
+        self.pre = nn.Linear(input_size, 64)
+        self.ncontainers = containers
+
+        self.embedder = nn.Sequential(
+            nn.Linear(state_size,10),
+            nn.ReLU(),
+            nn.Linear(10,5),
+            nn.ReLU()
+        )
+        #inputsize, hiddensize, num_layers
+        self.layers = nn.Sequential(
+            nn.Linear(64+5, 32),
+            nn.ReLU(),
+            nn.Linear(32,output_size),
+            nn.Softmax(dim=-1)
+        )
+        self.type = "reg"
+        self.hidden_vectors = None 
+        self.activations = []
+
+        def hook_fn(m,i,o):
+            if type(o) == type((1,)):
+                for u in o:
+                    self.activations.append(u.reshape(-1))
+            else:
+                self.activations.append(o.reshape(-1))
+
+        for n,l in self._modules.items():
+            l.register_forward_hook(hook_fn)
+
+
+    def reset(self):
+        self.activations = []
+
+    def forward(self, x,states):
+        #x shape : 
+        #states shape: -1,1,self.state_size
+        self.activations = [] # clearing activations because 
+        #                       heach step different environment uses the model
+
+        x = x.reshape(-1,self.ncontainers, self.input_size)
+        states = states.reshape(-1,self.ncontainers,self.state_size)
+        x = self.pre(x)
+        emb = self.embedder(states)
+        x = T.cat((x,emb),dim=-1)
         o = self.layers(x)
         return o
 
@@ -186,21 +243,26 @@ if __name__ == '__main__':
 
     # environments = [env,env1,env2,env3,env4,env5,env6,env7]
     n_envs = 4 
-    environments = [GathererState(gr=20,gc=20,vis=5,nagents=na,boxsize=boxsize,spawn_limit=10) for i in range(n_envs)]
+    environments = [GathererState(gr=10,gc=10,vis=5,nagents=na,boxsize=boxsize,spawn_limit=10) for i in range(n_envs)]
     # environments = [env]
 
-    model = StateRAgent(input_size=100,state_size=3,containers=len(environments))
-    model1 = StateRAgent(input_size=100,state_size=3,containers=len(environments))
-    model2 = StateRAgent(input_size=100,state_size=3,containers=len(environments))
+    #model = StateRAgent(input_size=100,state_size=3,containers=len(environments))
+    #model1 = StateRAgent(input_size=100,state_size=3,containers=len(environments))
 
-    model.load_state_dict(T.load("logs/models/1624719190.795712.pth"))
-    model1.load_state_dict(T.load("logs/models/1624719190.798054.pth"))
+#    model2 = StateRAgent(input_size=100,state_size=3,containers=len(environments))
+
+    model = StateAgent(input_size=100,state_size=3,containers=len(environments))
+    model1 = StateAgent(input_size=100,state_size=3,containers=len(environments))
+ 
+
+#    model.load_state_dict(T.load("logs/models/1624719190.795712.pth"))
+#    model1.load_state_dict(T.load("logs/models/1624719190.798054.pth"))
 
     models = [model,model1]
     s = MultiEnvironmentSimulator(
         models,environments,nactions=6,
-        log_message="Testing with 4 Environments",
-        visual_activations=True)
+        log_message="random presence of volcano",
+        visual_activations=False)
 
-    train = 0 
+    train = 1 
     s.run(1000,500,train=train,render_once=1,saveonce=2)

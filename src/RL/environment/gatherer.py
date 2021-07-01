@@ -23,6 +23,7 @@ class Agent:
         self.x, self.y = 0, 0
         self.picked = 0
         self.processor_locations = []
+        self.dead = False
 
     def act(self, action_vector, g_res, g_stor, g_processor):
         """ Rewarding systems is defined in this function """
@@ -39,6 +40,8 @@ class Agent:
         cx, cy = self.x, self.y
         self.trail_positions.append([cx, cy])
         picks = 0
+        VOLCANO = -3 
+
         if len(self.trail_positions) > 7:
             self.trail_positions.pop(0)
 
@@ -81,6 +84,7 @@ class StateAgent(Agent):
         self.items = 0
         self.processed_items = 0
         self.rewards = 0
+        self.circular_world = False
     
     def act(self,action_vector, g_res, g_processor):
         left, up, right, down = action_vector[:4]
@@ -93,52 +97,92 @@ class StateAgent(Agent):
         cx, cy = self.x, self.y
         self.trail_positions.append([cx, cy])
         picks = 0
+        VOLCANO = -3
+
         if len(self.trail_positions) > 7:
             self.trail_positions.pop(0)
 
-        if left:
-            if self.y>0:
-                self.y -= 1
-            else:         
-                self.y = h-1;
+        if self.dead:
+            return 0, 0
 
 
-        elif right: 
-            if self.y< h-1:
-                self.y += 1
-            else:
-                self.y = 0
+        if g_res[cx][cy] == VOLCANO:
+            self.dead = True
+            return -1,0
 
-        elif up :
-            if self.x > 0:
-                self.x -= 1
-            else:
-                self.x = v-1
 
-        elif down :
-            if self.x < v-1:
-                self.x += 1
-            else:
-                self.x = 0
+        if self.circular_world:
+            if left:
+                if self.y>0:
+                    self.y -= 1
+                else:         
+                    self.y = h-1;
+    
+    
+            elif right: 
+                if self.y< h-1:
+                    self.y += 1
+                else:
+                    self.y = 0
+    
+            elif up :
+                if self.x > 0:
+                    self.x -= 1
+                else:
+                    self.x = v-1
+    
+            elif down :
+                if self.x < v-1:
+                    self.x += 1
+                else:
+                    self.x = 0
+            elif pick:
+                if g_res[cx][cy] == 1:
+                    self.picked += g_res[cx][cy]
+                    self.collecteds+=1 
+                    g_res[cx][cy] = 0
+                    reward += 1
+                    picks = 1
+                elif g_res[cx][cy] == 2:
+                    self.items += 1
+                    g_res[cx][cy] = 0
+                    reward += 3
 
-        elif pick:
-            if g_res[cx][cy] == 1:
-                self.picked += g_res[cx][cy]
-                self.collecteds+=1 
-                g_res[cx][cy] = 0
+            elif build_proc > 0 and g_processor[cx][cy] == 0 and self.picked > 4:
+                # construction of storage is possible if agent picked more than 3 resource items
+                self.picked -= 4
+                g_processor[cx][cy] = 1
                 reward += 1
-                picks = 1
-            elif g_res[cx][cy] == 2:
-                self.items += 1
-                g_res[cx][cy] = 0
-                reward += 3
+                self.processor_locations.append([cx, cy])
 
-        elif build_proc > 0 and g_processor[cx][cy] == 0 and self.picked > 4:
-            # construction of storage is possible if agent picked more than 3 resource items
-            self.picked -= 4
-            g_processor[cx][cy] = 1
-            reward += 1
-            self.processor_locations.append([cx, cy])
+        else:
+            if left and self.y>0:
+                self.y -= 1
+            elif right and self.y < h-1:
+                self.y+=1
+            elif up and self.x>0:
+                self.x -=1
+            elif down and self.x<v-1:
+                self.x += 1
+
+            elif pick:
+                if g_res[cx][cy] == 1:
+                    self.picked += g_res[cx][cy]
+                    self.collecteds+=1 
+                    g_res[cx][cy] = 0
+                    reward += 1
+                    picks = 1
+                elif g_res[cx][cy] == 2:
+                    self.items += 1
+                    g_res[cx][cy] = 0
+                    reward += 3
+
+            elif build_proc > 0 and g_processor[cx][cy] == 0 and self.picked > 4:
+                # construction of storage is possible if agent picked more than 3 resource items
+                self.picked -= 4
+                g_processor[cx][cy] = 1
+                reward += 1
+                self.processor_locations.append([cx, cy])
         self.rewards += reward
         return reward, picks
 
@@ -345,6 +389,7 @@ class Gatherer:
 
     def draw_items(self):
         v, h = self.grid_resource.shape
+        VOLCANO = -3
         # v=20 h = 30
         for i in range(v):
             for j in range(h):
@@ -358,6 +403,9 @@ class Gatherer:
                     self.draw_triangle(i,j,(0,255,0))
                 elif self.grid_resource[i][j] == 2:
                     self.draw_triangle(i,j,(0,255,255))
+                elif self.grid_resource[i][j] == VOLCANO: #volcano
+                    self.draw_box(i,j,(255,165,0))
+
                 if self.grid_stored[i][j] > 0:
                     self.draw_circle(i,j,(255,0,0))
 
@@ -464,6 +512,9 @@ class GathererState(Gatherer):
         self.win = py.Surface((self.w, self.h), py.DOUBLEBUF, 32)
         print("SURFACE SHAPES :",self.w,self.h)
         self.agents = []
+
+        self.total_rewards = [0 for i in range(len(self.agents))]
+        self.bool_volcano = True if np.random.randint(2)==1 else False
         all_colors = [[255, 255, 0], [28, 230, 255], [255, 52, 255], [255, 74, 70], [0, 137, 65], [0, 111, 166], [163, 0, 89], [255, 219, 229], [122, 73, 0], [0, 0, 166], [99, 255, 172], [183, 151, 98], [0, 77, 67], [143, 176, 255], [153, 125, 135], [90, 0, 7], [128, 150, 147], [254, 255, 230], [27, 68, 0], [79, 198, 1], [59, 93, 255], [74, 59, 83], [255, 47, 128], [97, 97, 90], [186, 9, 0], [107, 121, 0], [0, 194, 160], [255, 170, 146], [255, 144, 201], [185, 3, 170], [209, 97, 0], [
             221, 239, 255], [0, 0, 53], [123, 79, 75], [161, 194, 153], [48, 0, 24], [10, 166, 216], [1, 51, 73], [0, 132, 111], [55, 33, 1], [255, 181, 0], [194, 255, 237], [160, 121, 191], [204, 7, 68], [192, 185, 178], [194, 255, 153], [0, 30, 9], [0, 72, 156], [111, 0, 98], [12, 189, 102], [238, 195, 255], [69, 109, 117], [183, 123, 104], [122, 135, 161], [120, 141, 102], [136, 85, 120], [250, 208, 159], [255, 138, 154], [209, 87, 160], [190, 196, 89], [69, 102, 72], [0, 134, 237], [136, 111, 76]]
         self.total_rewards = []
@@ -473,10 +524,44 @@ class GathererState(Gatherer):
             agent = self.agents[a]
             agent.color = all_colors[a]
             self.grid_agents[a][agent.x][agent.y]
+        self.initiate_volcano()
+    
+    
+
+    def initiate_volcano(self):
+        if not self.bool_volcano:
+            return 
+        v,h = self.grid_resource.shape
+        n_volcano_pits = 3
+        pit_size = 2 
+        VOLCANO = -3
+        vpos = []
+        for _ in range(n_volcano_pits):
+            i,j = np.random.randint(0,v),np.random.randint(0,h)
+            while True: 
+                i,j = np.random.randint(0,v),np.random.randint(0,h)
+                collides = False
+                for pos in vpos:
+                    a,b = pos
+                    if i+pit_size >= a and j+pit_size >= b and j <= b and i <= a:
+                        collides = True
+
+                if collides:continue
+                else: break
+
+
+            vpos.append([i,j])
+            for a in range(pit_size):
+                for b in range(pit_size):
+                    self.grid_resource[(i+a)%v][(j+b)%h] = VOLCANO
+
+                
 
     def reset(self):
         super().reset()
         self.total_rewards = [0 for i in range(len(self.agents))]
+        self.bool_volcano = True if np.random.randint(2)==1 else False
+        self.initiate_volcano()
 
 
     def act(self,action_vecs):
@@ -596,7 +681,7 @@ class GathererState(Gatherer):
                 px, py = loc
                 for agent in self.agents:
                     req = 3
-                    if agent.picked > req:
+                    if agent.picked > req: #checks if the agents has enough resources
                         if px-1 > -1 and self.grid_resource[px-1][py] == 0:
                             self.grid_resource[px-1][py] = 2
                             agent.picked -= req
