@@ -49,9 +49,15 @@ class StateRAgent(nn.Module):
         def hook_fn(m,i,o):
             if type(o) == type((1,)):
                 for u in o:
-                    self.activations.append(u.reshape(-1))
+                    if len(self.activations) != u.shape[1]:
+                        self.activations = [[] for _ in range(u.shape[1])]
+                    for aa in range(u.shape[1]):
+                        self.activations[aa].append(u[:,aa,:].reshape(-1))
             else:
-                self.activations.append(o.reshape(-1))
+                if len(self.activations) != o.shape[1]:
+                    self.activations = [[] for _ in range(o.shape[1])]
+                for aa in range(o.shape[1]):
+                    self.activations[aa].append(o[:,aa,:].reshape(-1))
 
         for n,l in self._modules.items():
             l.register_forward_hook(hook_fn)
@@ -105,12 +111,22 @@ class StateAgent(nn.Module):
         self.hidden_vectors = None 
         self.activations = []
 
+
         def hook_fn(m,i,o):
             if type(o) == type((1,)):
                 for u in o:
-                    self.activations.append(u.reshape(-1))
+                    if len(self.activations) != u.shape[1]:
+                        self.activations = [[] for _ in range(u.shape[1])]
+                    for aa in range(u.shape[1]):
+                        self.activations[aa].append(u[:,aa,:].reshape(-1))
             else:
-                self.activations.append(o.reshape(-1))
+                if len(self.activations) != o.shape[1]:
+                    self.activations = [[] for _ in range(o.shape[1])]
+                for aa in range(o.shape[1]):
+                    self.activations[aa].append(o[:,aa,:].reshape(-1))
+
+
+
 
         for n,l in self._modules.items():
             l.register_forward_hook(hook_fn)
@@ -254,15 +270,16 @@ if __name__ == '__main__':
     model = StateAgent(input_size=100,state_size=3,containers=len(environments))
     model1 = StateAgent(input_size=100,state_size=3,containers=len(environments))
  
+#          1625202536.430398
 
-#    model.load_state_dict(T.load("logs/models/1624719190.795712.pth"))
-#    model1.load_state_dict(T.load("logs/models/1624719190.798054.pth"))
+    model.load_state_dict(T.load("logs/models/1625202536.430398.pth"))
+    model1.load_state_dict(T.load("logs/models/1625202536.430398.pth"))
 
     models = [model,model1]
     s = MultiEnvironmentSimulator(
         models,environments,nactions=6,
-        log_message="random presence of volcano",
-        visual_activations=False)
+        log_message="Negative for idleness",
+        visual_activations=True)
 
-    train = 1 
+    train = 0 
     s.run(1000,500,train=train,render_once=1,saveonce=2)

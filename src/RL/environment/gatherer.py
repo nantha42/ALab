@@ -85,6 +85,10 @@ class StateAgent(Agent):
         self.processed_items = 0
         self.rewards = 0
         self.circular_world = False
+        self.last_action = -1 
+        self.recent_paths = {}
+        self.last_point = [0,0]
+        self.idle_count = 0
     
     def act(self,action_vector, g_res, g_processor):
         left, up, right, down = action_vector[:4]
@@ -98,6 +102,7 @@ class StateAgent(Agent):
         self.trail_positions.append([cx, cy])
         picks = 0
         VOLCANO = -3
+         
 
         if len(self.trail_positions) > 7:
             self.trail_positions.pop(0)
@@ -109,7 +114,7 @@ class StateAgent(Agent):
         if g_res[cx][cy] == VOLCANO:
             self.dead = True
             return -1,0
-
+        
 
         if self.circular_world:
             if left:
@@ -177,17 +182,30 @@ class StateAgent(Agent):
                     g_res[cx][cy] = 0
                     reward += 3
 
+                elif g_res[cx][cy] == 0:
+                    self.idle_count +=1
+
+
             elif build_proc > 0 and g_processor[cx][cy] == 0 and self.picked > 4:
                 # construction of storage is possible if agent picked more than 3 resource items
                 self.picked -= 4
                 g_processor[cx][cy] = 1
                 reward += 1
                 self.processor_locations.append([cx, cy])
+
+        if self.last_point == [self.x,self.y]:
+            self.idle_count +=1 
+        else:
+            self.last_point = [self.x,self.y]
+            self.idle_count -= 0 if self.idle_count == 0 else 1
+
+        if self.idle_count>6:
+            reward = -1
+            self.idle_count = 0
+
         self.rewards += reward
         return reward, picks
 
-
-    
 class Gatherer:
     def __init__(self, gr=10, gc=10, vis=7, nagents=1):
         py.init()
@@ -537,9 +555,9 @@ class GathererState(Gatherer):
         VOLCANO = -3
         vpos = []
         for _ in range(n_volcano_pits):
-            i,j = np.random.randint(0,v),np.random.randint(0,h)
             while True: 
-                i,j = np.random.randint(0,v),np.random.randint(0,h)
+                i,j = np.random.randint(1,v),np.random.randint(0,h)
+                
                 collides = False
                 for pos in vpos:
                     a,b = pos

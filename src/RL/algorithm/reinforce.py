@@ -7,6 +7,57 @@ import pygame as py
 import time
 from .utils import RLGraph
 
+def calculate_color(av, maxi, mini, poslimit, neglimit):
+    cg = 0
+    cr = 0
+
+    if av < 0:
+        cr = int(((av)/mini)*neglimit)
+        cg = 0
+        # cg = poslimit- (cr)
+    else:
+        cg = int((av/maxi)*poslimit)
+        # cr = neglimit - cg
+        cr = 0
+    return cr, cg
+
+def calculate_limits(maxi, mini):
+    if abs(maxi) > abs(mini):
+        poslimit = 180
+        neglimit = int(255.0*(abs(mini) / abs(maxi)))
+    else:
+        neglimit = 255
+        poslimit = int(255.0*(abs(maxi) / abs(mini)))
+    return poslimit, neglimit
+
+
+
+def draw_activations(model,size=1):
+    surfs = []
+    for env_act in model.activations:
+        
+        activation = T.cat(env_act,dim=0).reshape(-1).detach().numpy()
+        varr = activation.shape[0]
+        l = int(np.sqrt(varr))
+        activation = activation[-l*l:].reshape((l,l))
+        sz = size
+        activ_surf = py.Surface((l*sz,l*sz))
+        maxi = np.max(activation) 
+        mini = np.min(activation)
+
+        poslimit, neglimit = calculate_limits(maxi,mini)
+        for r in range(l):
+            for c in range(l):
+                av = activation[r][c]
+                cr, cg = calculate_color(
+                    av, maxi, mini, poslimit, neglimit)
+                colorvalue = (abs(cr), abs(cg), max(abs(cr), abs(cg)))
+                py.draw.rect(activ_surf, colorvalue,
+                             (c*sz, r*sz, sz, sz))
+        surfs.append(activ_surf)
+    return surfs 
+ 
+
 
 class Trainer:
     def __init__(self, model,
@@ -44,13 +95,21 @@ class Trainer:
         gamma = 0.99
         DEP_FACTOR = 20 # 500/20 = 25
         l = len(self.rewards)/DEP_FACTOR    
-        a = 0
+        a = 0 
         for t in reversed(range(len(self.rewards))):
-#            a+=1
-#            if a == l:
-#                a = 0
+#            if a>1:
+#                a-=1
+#            elif a==1:
 #                Gt = 0
+#                a-=1
+            a+=1
+            if a == l:
+                a = 0
+                Gt = 0
+
 #            if self.rewards[t]<0:
+#                a = 3 
+#                Gt = 0
                 
             Gt = self.rewards[t] + gamma*Gt
             discounted_rewards.append(Gt)
@@ -1142,6 +1201,10 @@ class MultiEnvironmentSimulator(MultiAgentSimulator):
         self.environments = environments  # StateGatherers with different states
         self.simulation_speed = 0.0
         self.trainers = [Trainer(m,learning_rate=0.01) for m in self.models]
+        self.render_enable = False
+        self.show_activations = True
+        self.activation_size = 1
+
 
 
     def initiate_window(self,environments,visual_activations):
@@ -1186,9 +1249,22 @@ class MultiEnvironmentSimulator(MultiAgentSimulator):
                 if event.key == py.K_o:
                     print("Speed DECREASE")
                     self.simulation_speed += 0.1
+
+                if event.key == py.K_r:
+                    self.render_enable = not self.render_enable 
+
+                if event.key == py.K_a:
+                   self.show_activations = not self.show_activations
+
+                if event.key == py.K_n:
+                    self.activation_size+=1
+
+                if event.key == py.K_m:
+                   self.activation_size-=1
                 
                 if self.simulation_speed < 0:
                     self.simulation_speed = 0
+
 
             if event.type == py.MOUSEBUTTONDOWN:
                 pass
@@ -1198,18 +1274,37 @@ class MultiEnvironmentSimulator(MultiAgentSimulator):
         self.window.fill((0,0,0))
         initial = [10,10]
         positions = [initial]
+        environment_space = 500
         for i in range(len(self.containers)-1):
             w,h = self.containers[i].env.win.get_width(),self.containers[i].env.win.get_height()
             lx,ly = positions[-1]
-            # if lx + w > 250:
-            if lx + w > 500:
+            if lx + w > environment_space:
                 positions.append([10,ly+h+10])
             else: 
                 positions.append([lx+w+10,ly])
 
         for cont,pos in zip(self.containers,positions):
             self.window.blit(cont.env.win,pos)
+
+        if self.show_activations:
+            mod_surfs = []
+            ws = 0
+            for model in self.containers[0].models: 
+                surfs = draw_activations(model,self.activation_size)
+                ws+= (w+5)
+                mod_surfs.append(surfs)
+            
+            h = 0
+            for surfs in mod_surfs:
+                a = environment_space+10
+                below = h
+                for surf in surfs:
+                    self.window.blit(surf,(a,below))
+                    a+= surf.get_width()+5
+                    h = max(h,below+surf.get_height())
+                h+= 5 
         py.display.update()
+
 
     def run(self, episodes, steps, train=False, render_once=1e10, saveonce=10):
         if train:
@@ -1225,7 +1320,7 @@ class MultiEnvironmentSimulator(MultiAgentSimulator):
             for j in range(len(self.models)):
                 trewards.append([0 for p in range(len(self.containers))])
             trewards = np.array(trewards)            
-            tqdm_steps = tqdm(range(steps), bar_format='{l_bar}{bar:10}{r_bar}{bar:-10b}')
+            tqdm_steps = tqdm(range(steps), bar_format='{l_bar}{bar:10}{r_bar}{bar:-10b}') 
             for step in tqdm_steps: 
                 self.event_handler()
                 states_of_models = []
@@ -1278,14 +1373,14 @@ class MultiEnvironmentSimulator(MultiAgentSimulator):
                 for j in range(len(self.trainers)):
                     trewards[j] += rewards[j]
                 if train:
-                    # print("REW!",np.array(log_probs).shape,rewards.shape)
                     for j in range(len(self.trainers)):
-                        # print("STORING ",log_probs[j])
                         self.trainers[j].store_records(rewards[j],log_probs[j])
                 else:
                     time.sleep(self.simulation_speed)
-                if self.visual_activations:
+                if self.render_enable:
                     self.visualize()
+                    
+
 
             if train:
                 for j in range(len(self.trainers)):
