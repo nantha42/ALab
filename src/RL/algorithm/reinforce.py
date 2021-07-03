@@ -115,6 +115,7 @@ class Trainer:
         
         discounted_rewards.reverse()
         discounted_rewards = T.stack(discounted_rewards,dim=0)
+        print(discounted_rewards)
         # print("DIS element",discounted_rewards[0].shape)
         # print("DIS SHAPE",discounted_rewards)
         # print("LOG PROB SHAPE",self.log_probs.shape)
@@ -130,7 +131,6 @@ class Trainer:
 
         policy_gradient = []
         for log_prob, Gt in zip(self.log_probs, discounted_rewards):
-            mul = -log_prob*Gt
             policy_gradient.append(-log_prob * Gt)
 
         self.optimizer.zero_grad()
@@ -138,6 +138,10 @@ class Trainer:
         stacked = T.stack(policy_gradient)
         policy_gradient = T.stack(policy_gradient).sum()
         policy_gradient.backward()
+        print("*********************************")
+        for a in self.model.parameters():
+            print("GRAD",a.grad)
+        print("*********************************")
         self.optimizer.step()
 
 
@@ -1363,8 +1367,6 @@ class MultiEnvironmentSimulator(MultiAgentSimulator):
                     log_prob = c.log_prob(action)
                     # print("LOG prob: ",log_prob)
                     log_probs.append(log_prob)
-
-                    # print("TTTTT",action)
                     u = T.eye(self.models[i].output_size)
                     onehot = u[action]
                     # print("UUUU",onehot)
@@ -1389,7 +1391,6 @@ class MultiEnvironmentSimulator(MultiAgentSimulator):
                 if train:
                     for j in range(len(self.trainers)):
                         self.trainers[j].store_records(rewards[j],log_probs[j])
-                else:
                     time.sleep(self.simulation_speed)
                 if self.render_enable:
                     self.visualize()

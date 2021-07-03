@@ -244,44 +244,32 @@ if __name__ == '__main__':
 
     #MULTI ENVIRONMENT TESTING
     boxsize = 10
-    na = 2
-#    env = GathererState(gr = 10,gc = 10,vis=5,nagents=na,boxsize=boxsize,spawn_limit = 10)
-#    env1 = GathererState(gr = 10,gc = 10,vis=5,nagents=na,boxsize=boxsize,spawn_limit = 10)
-#    env2 = GathererState(gr = 10,gc = 10,vis=5,nagents=na,boxsize=boxsize,spawn_limit = 10)
-#    env3 = GathererState(gr = 10,gc = 10,vis=5,nagents=na,boxsize=boxsize,spawn_limit = 10)
-#    env4 = GathererState(gr = 10,gc = 10,vis=5,nagents=na,boxsize=boxsize,spawn_limit = 10)
-#    env5 = GathererState(gr = 10,gc = 10,vis=5,nagents=na,boxsize=boxsize,spawn_limit = 10)
-#    env6 = GathererState(gr = 10,gc = 10,vis=5,nagents=na,boxsize=boxsize,spawn_limit = 10)
-#    env7 = GathererState(gr = 10,gc = 10,vis=5,nagents=na,boxsize=boxsize,spawn_limit = 10)
-    # env2 = GathererState(gr = 4,gc = 4,vis=5,nagents=2,boxsize=boxsize,spawn_limit = 5)
-    # env3 = GathererState(gr = 20,gc=20,vis=5,nagents=2,boxsize=boxsize,spawn_limit=25)
-
-    # environments = [env,env1,env2,env3,env4,env5,env6,env7]
-    n_envs = 3 
+    na = 1
+    n_envs = 0 
     environments = [GathererState(gr=10,gc=10,vis=5,nagents=na,boxsize=boxsize,spawn_limit=10,volcano=False) for i in range(n_envs)]
+    env1 = GathererState(gr=5,gc=5,vis=5,nagents=na,boxsize=boxsize,spawn_limit=1,volcano=False) 
+    for agent in env1.agents:
+        agent.circular_world = True
+    environments.append(env1) 
     # environments = [env]
 
     #model = StateRAgent(input_size=100,state_size=3,containers=len(environments))
     #model1 = StateRAgent(input_size=100,state_size=3,containers=len(environments))
 #    model2 = StateRAgent(input_size=100,state_size=3,containers=len(environments))
 
-    model = StateAgent(input_size=100,state_size=3,containers=len(environments))
+    model = StateRAgent(input_size=100,state_size=3,containers=len(environments))
     model1 = StateAgent(input_size=100,state_size=3,containers=len(environments))
  
-#          1625202536.430398
+#          1625202536.430398
 
-#    model.load_state_dict(T.load("logs/models/1625202536.430398.pth"))
-#    model1.load_state_dict(T.load("logs/models/1625202536.430398.pth"))
+#    model.load_state_dict(T.load("logs/models/1625317286.807864.pth"))
+#    model1.load_state_dict(T.load("logs/models/1625317286.815844.pth"))
 
-    models = [model,model1]
+    models = [model]
     s = MultiEnvironmentSimulator(
         models,environments,nactions=6,
-        log_message="No death, all spawn volcanos",
+        log_message="Testing for fallout",
         visual_activations=True)
 
     train = 1 
     s.run(1000,500,train=train,render_once=1,saveonce=2)
-
-
-
-
