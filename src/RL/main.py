@@ -23,23 +23,25 @@ class StateRAgent(nn.Module):
         self.input_size = input_size
         self.state_size= state_size 
         self.output_size = output_size
-        self.pre = nn.Linear(input_size, 64)
-        self.hidden = T.zeros((1,containers ,64)) #seq length, Batch, hiddensize
+        self.nrs = 2
+        self.pre = nn.Linear(input_size, self.nrs)
+        self.hidden = T.zeros((1,containers ,self.nrs)) #seq length, Batch, hiddensize
         self.hidden_states = []
         self.ncontainers = containers
 
         self.embedder = nn.Sequential(
-            nn.Linear(state_size,10),
+            nn.Linear(state_size,self.nrs),
             nn.ReLU(),
-            nn.Linear(10,5),
+            nn.Linear(self.nrs,5),
             nn.ReLU()
         )
         #inputsize, hiddensize, num_layers
-        self.gru = nn.GRU(64+5, 64, 1) # hidden size + embedding dimension
+        self.gru = nn.GRU(self.nrs+5,self.nrs, 1) # hidden size + embedding dimension
         self.layers = nn.Sequential(
-            nn.Linear(64, 32),
-            nn.ReLU(),
-            nn.Linear(32,output_size),
+
+            nn.Linear(self.nrs, output_size),
+            #nn.ReLU(),
+            #nn.Linear(32,output_size),
             nn.Softmax(dim=-1)
         )
         self.type = "mem"
@@ -52,18 +54,18 @@ class StateRAgent(nn.Module):
                     if len(self.activations) != u.shape[1]:
                         self.activations = [[] for _ in range(u.shape[1])]
                     for aa in range(u.shape[1]):
-                        self.activations[aa].append(u[:,aa,:].reshape(-1))
+                        self.activations[aa].append(u[:,aa,:].detach().reshape(-1))
             else:
                 if len(self.activations) != o.shape[1]:
                     self.activations = [[] for _ in range(o.shape[1])]
                 for aa in range(o.shape[1]):
-                    self.activations[aa].append(o[:,aa,:].reshape(-1))
+                    self.activations[aa].append(o[:,aa,:].detach().reshape(-1))
 
         for n,l in self._modules.items():
             l.register_forward_hook(hook_fn)
 
     def reset(self):
-        self.hidden = T.zeros((1,self.ncontainers,  64)) #seq length, Batch, hiddensize
+        self.hidden = T.zeros((1,self.ncontainers,  self.nrs)) #seq length, Batch, hiddensize
         self.activations = []
         self.hidden_states = [self.hidden]
 
@@ -247,9 +249,9 @@ if __name__ == '__main__':
     na = 1
     n_envs = 0 
     environments = [GathererState(gr=10,gc=10,vis=5,nagents=na,boxsize=boxsize,spawn_limit=10,volcano=False) for i in range(n_envs)]
-    env1 = GathererState(gr=5,gc=5,vis=5,nagents=na,boxsize=boxsize,spawn_limit=1,volcano=False) 
+    env1 = GathererState(gr=5,gc=5,vis=5,nagents=na,boxsize=boxsize,spawn_limit=5,volcano=False) 
     for agent in env1.agents:
-        agent.circular_world = True
+        agent.circular_world = False
     environments.append(env1) 
     # environments = [env]
 
