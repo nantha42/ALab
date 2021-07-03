@@ -110,12 +110,6 @@ class StateAgent(Agent):
         if self.dead:
             return 0, 0
 
-
-        if g_res[cx][cy] == VOLCANO:
-            self.dead = True
-            return -1,0
-        
-
         if self.circular_world:
             if left:
                 if self.y>0:
@@ -169,7 +163,6 @@ class StateAgent(Agent):
                 self.x -=1
             elif down and self.x<v-1:
                 self.x += 1
-
             elif pick:
                 if g_res[cx][cy] == 1:
                     self.picked += g_res[cx][cy]
@@ -193,16 +186,19 @@ class StateAgent(Agent):
                 reward += 1
                 self.processor_locations.append([cx, cy])
 
-        if self.last_point == [self.x,self.y]:
-            self.idle_count +=1 
-        else:
-            self.last_point = [self.x,self.y]
-            self.idle_count -= 0 if self.idle_count == 0 else 1
+#        if self.last_point == [self.x,self.y]:
+#            self.idle_count +=1 
+#        else:
+#            self.last_point = [self.x,self.y]
+#            self.idle_count -= 0 if self.idle_count == 0 else 1
+#
+#        if self.idle_count>6:
+#            reward = -1
+#            self.idle_count = 0
 
-        if self.idle_count>6:
-            reward = -1
-            self.idle_count = 0
-
+#        if g_res[cx][cy] == VOLCANO:
+#            reward -= 1
+        
         self.rewards += reward
         return reward, picks
 
@@ -519,7 +515,7 @@ class GathererState(Gatherer):
         The state of the agent need to be altered and stored in a list
         and passed to the multienvironmentsimulator 
     """
-    def __init__(self,gr=10,gc=10,vis=7,nagents=1,boxsize=2,spawn_limit=10):
+    def __init__(self,gr=10,gc=10,vis=7,nagents=1,boxsize=2,spawn_limit=10,volcano=True):
         super().__init__(gr,gc,vis,nagents)
         self.spawn_limit = spawn_limit
         self.font = py.font.SysFont("times", boxsize)
@@ -530,9 +526,9 @@ class GathererState(Gatherer):
         self.win = py.Surface((self.w, self.h), py.DOUBLEBUF, 32)
         print("SURFACE SHAPES :",self.w,self.h)
         self.agents = []
-
         self.total_rewards = [0 for i in range(len(self.agents))]
         self.bool_volcano = True if np.random.randint(2)==1 else False
+        self.spawn_volcano = volcano
         all_colors = [[255, 255, 0], [28, 230, 255], [255, 52, 255], [255, 74, 70], [0, 137, 65], [0, 111, 166], [163, 0, 89], [255, 219, 229], [122, 73, 0], [0, 0, 166], [99, 255, 172], [183, 151, 98], [0, 77, 67], [143, 176, 255], [153, 125, 135], [90, 0, 7], [128, 150, 147], [254, 255, 230], [27, 68, 0], [79, 198, 1], [59, 93, 255], [74, 59, 83], [255, 47, 128], [97, 97, 90], [186, 9, 0], [107, 121, 0], [0, 194, 160], [255, 170, 146], [255, 144, 201], [185, 3, 170], [209, 97, 0], [
             221, 239, 255], [0, 0, 53], [123, 79, 75], [161, 194, 153], [48, 0, 24], [10, 166, 216], [1, 51, 73], [0, 132, 111], [55, 33, 1], [255, 181, 0], [194, 255, 237], [160, 121, 191], [204, 7, 68], [192, 185, 178], [194, 255, 153], [0, 30, 9], [0, 72, 156], [111, 0, 98], [12, 189, 102], [238, 195, 255], [69, 109, 117], [183, 123, 104], [122, 135, 161], [120, 141, 102], [136, 85, 120], [250, 208, 159], [255, 138, 154], [209, 87, 160], [190, 196, 89], [69, 102, 72], [0, 134, 237], [136, 111, 76]]
         self.total_rewards = []
@@ -544,9 +540,10 @@ class GathererState(Gatherer):
             self.grid_agents[a][agent.x][agent.y]
         self.initiate_volcano()
     
-    
 
     def initiate_volcano(self):
+        if not self.spawn_volcano:
+            return
         if not self.bool_volcano:
             return 
         v,h = self.grid_resource.shape

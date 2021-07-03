@@ -111,7 +111,6 @@ class StateAgent(nn.Module):
         self.hidden_vectors = None 
         self.activations = []
 
-
         def hook_fn(m,i,o):
             if type(o) == type((1,)):
                 for u in o:
@@ -200,7 +199,7 @@ class AgentCA(nn.Module):
             nn.Linear(64, 6),
             nn.Softmax(dim=-1)
         )
-        self.vlayers = nn.Sequential(
+        self.vlayers = nn.Se;quential(
             nn.Linear(input_size, 64),
             nn.ReLU(),
             nn.Linear(64,1 ),
@@ -246,25 +245,24 @@ if __name__ == '__main__':
     #MULTI ENVIRONMENT TESTING
     boxsize = 10
     na = 2
-    env = GathererState(gr = 10,gc = 10,vis=5,nagents=na,boxsize=boxsize,spawn_limit = 10)
-    env1 = GathererState(gr = 10,gc = 10,vis=5,nagents=na,boxsize=boxsize,spawn_limit = 10)
-    env2 = GathererState(gr = 10,gc = 10,vis=5,nagents=na,boxsize=boxsize,spawn_limit = 10)
-    env3 = GathererState(gr = 10,gc = 10,vis=5,nagents=na,boxsize=boxsize,spawn_limit = 10)
-    env4 = GathererState(gr = 10,gc = 10,vis=5,nagents=na,boxsize=boxsize,spawn_limit = 10)
-    env5 = GathererState(gr = 10,gc = 10,vis=5,nagents=na,boxsize=boxsize,spawn_limit = 10)
-    env6 = GathererState(gr = 10,gc = 10,vis=5,nagents=na,boxsize=boxsize,spawn_limit = 10)
-    env7 = GathererState(gr = 10,gc = 10,vis=5,nagents=na,boxsize=boxsize,spawn_limit = 10)
+#    env = GathererState(gr = 10,gc = 10,vis=5,nagents=na,boxsize=boxsize,spawn_limit = 10)
+#    env1 = GathererState(gr = 10,gc = 10,vis=5,nagents=na,boxsize=boxsize,spawn_limit = 10)
+#    env2 = GathererState(gr = 10,gc = 10,vis=5,nagents=na,boxsize=boxsize,spawn_limit = 10)
+#    env3 = GathererState(gr = 10,gc = 10,vis=5,nagents=na,boxsize=boxsize,spawn_limit = 10)
+#    env4 = GathererState(gr = 10,gc = 10,vis=5,nagents=na,boxsize=boxsize,spawn_limit = 10)
+#    env5 = GathererState(gr = 10,gc = 10,vis=5,nagents=na,boxsize=boxsize,spawn_limit = 10)
+#    env6 = GathererState(gr = 10,gc = 10,vis=5,nagents=na,boxsize=boxsize,spawn_limit = 10)
+#    env7 = GathererState(gr = 10,gc = 10,vis=5,nagents=na,boxsize=boxsize,spawn_limit = 10)
     # env2 = GathererState(gr = 4,gc = 4,vis=5,nagents=2,boxsize=boxsize,spawn_limit = 5)
     # env3 = GathererState(gr = 20,gc=20,vis=5,nagents=2,boxsize=boxsize,spawn_limit=25)
 
     # environments = [env,env1,env2,env3,env4,env5,env6,env7]
-    n_envs = 4 
-    environments = [GathererState(gr=10,gc=10,vis=5,nagents=na,boxsize=boxsize,spawn_limit=10) for i in range(n_envs)]
+    n_envs = 3 
+    environments = [GathererState(gr=10,gc=10,vis=5,nagents=na,boxsize=boxsize,spawn_limit=10,volcano=False) for i in range(n_envs)]
     # environments = [env]
 
     #model = StateRAgent(input_size=100,state_size=3,containers=len(environments))
     #model1 = StateRAgent(input_size=100,state_size=3,containers=len(environments))
-
 #    model2 = StateRAgent(input_size=100,state_size=3,containers=len(environments))
 
     model = StateAgent(input_size=100,state_size=3,containers=len(environments))
@@ -272,14 +270,18 @@ if __name__ == '__main__':
  
 #          1625202536.430398
 
-    model.load_state_dict(T.load("logs/models/1625202536.430398.pth"))
-    model1.load_state_dict(T.load("logs/models/1625202536.430398.pth"))
+#    model.load_state_dict(T.load("logs/models/1625202536.430398.pth"))
+#    model1.load_state_dict(T.load("logs/models/1625202536.430398.pth"))
 
     models = [model,model1]
     s = MultiEnvironmentSimulator(
         models,environments,nactions=6,
-        log_message="Negative for idleness",
+        log_message="No death, all spawn volcanos",
         visual_activations=True)
 
-    train = 0 
+    train = 1 
     s.run(1000,500,train=train,render_once=1,saveonce=2)
+
+
+
+

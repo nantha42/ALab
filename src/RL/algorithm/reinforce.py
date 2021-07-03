@@ -89,7 +89,6 @@ class Trainer:
         #         pw = pw + 1
         #     discounted_rewards.append(Gt)
         self.rewards = T.tensor(self.rewards).float()
-        # print("REWRDS ",self.rewards.shape)
         self.log_probs = T.stack(self.log_probs,dim=0)
         Gt = 0
         gamma = 0.99
@@ -102,10 +101,10 @@ class Trainer:
 #            elif a==1:
 #                Gt = 0
 #                a-=1
-            a+=1
-            if a == l:
-                a = 0
-                Gt = 0
+#            a+=1
+#            if a == l:
+#                a = 0
+#                Gt = 0
 
 #            if self.rewards[t]<0:
 #                a = 3 
@@ -114,23 +113,29 @@ class Trainer:
             Gt = self.rewards[t] + gamma*Gt
             discounted_rewards.append(Gt)
         
-
         discounted_rewards.reverse()
         discounted_rewards = T.stack(discounted_rewards,dim=0)
-
         # print("DIS element",discounted_rewards[0].shape)
         # print("DIS SHAPE",discounted_rewards)
         # print("LOG PROB SHAPE",self.log_probs.shape)
         # print("LOG PROB",self.log_probs)
 
         discounted_rewards = T.tensor(discounted_rewards)
+#        for i in range(len(discounted_rewards[0])):
+#            discounted_rewards[:,i] = (discounted_rewards[:,i] - discounted_rewards[:,i].mean()) / (
+#                    discounted_rewards[:,i].std() + 1e-9)  # normalize discounted rewards
         discounted_rewards = (discounted_rewards - discounted_rewards.mean()) / (
-            discounted_rewards.std() + 1e-9)  # normalize discounted rewards
+                    discounted_rewards.std() + 1e-9)  # normalize discounted rewards
+
+
         policy_gradient = []
         for log_prob, Gt in zip(self.log_probs, discounted_rewards):
+            mul = -log_prob*Gt
             policy_gradient.append(-log_prob * Gt)
+
         self.optimizer.zero_grad()
         # print("Length",len(policy_gradient))
+        stacked = T.stack(policy_gradient)
         policy_gradient = T.stack(policy_gradient).sum()
         policy_gradient.backward()
         self.optimizer.step()
@@ -1116,7 +1121,6 @@ class MultiAgentSimulator(MultiAgentRunner):
 class Container:
     def __init__(self, environment, models):
         """args: environment, model"""
-
         self.env = environment
         self.models = models
         self.hidden_states = None
@@ -1204,6 +1208,7 @@ class MultiEnvironmentSimulator(MultiAgentSimulator):
         self.render_enable = False
         self.show_activations = True
         self.activation_size = 1
+        self.randomaction = 0.0
 
 
 
@@ -1254,16 +1259,24 @@ class MultiEnvironmentSimulator(MultiAgentSimulator):
                     self.render_enable = not self.render_enable 
 
                 if event.key == py.K_a:
-                   self.show_activations = not self.show_activations
+                    self.show_activations = not self.show_activations
 
                 if event.key == py.K_n:
                     self.activation_size+=1
 
                 if event.key == py.K_m:
-                   self.activation_size-=1
-                
+                    if self.activation_size>0:
+                        self.activation_size-=1
                 if self.simulation_speed < 0:
                     self.simulation_speed = 0
+
+                if event.key == py.K_UP:
+                    if self.randomaction < 1:
+                        self.randomaction += 0.1
+
+                if event.key == py.K_DOWN:
+                    if self.randomaction > 0 :
+                        self.randomaction -= 0.1
 
 
             if event.type == py.MOUSEBUTTONDOWN:
@@ -1275,6 +1288,7 @@ class MultiEnvironmentSimulator(MultiAgentSimulator):
         initial = [10,10]
         positions = [initial]
         environment_space = 500
+        w,h = self.containers[0].env.win.get_width(),self.containers[0].env.win.get_height()
         for i in range(len(self.containers)-1):
             w,h = self.containers[i].env.win.get_width(),self.containers[i].env.win.get_height()
             lx,ly = positions[-1]
@@ -1380,8 +1394,6 @@ class MultiEnvironmentSimulator(MultiAgentSimulator):
                 if self.render_enable:
                     self.visualize()
                     
-
-
             if train:
                 for j in range(len(self.trainers)):
                     self.trainers[j].update()
