@@ -172,7 +172,7 @@ if __name__ == '__main__':
 
     #MULTI ENVIRONMENT TESTING
     boxsize = 10
-    na = 1
+    na = 3
     env = GathererState(gr = 10,gc = 10,vis=5,nagents=na,boxsize=boxsize,spawn_limit = 10)
     env1 = GathererState(gr = 10,gc = 10,vis=5,nagents=na,boxsize=boxsize,spawn_limit = 10)
     env2 = GathererState(gr = 10,gc = 10,vis=5,nagents=na,boxsize=boxsize,spawn_limit = 10)
@@ -185,8 +185,8 @@ if __name__ == '__main__':
     # env3 = GathererState(gr = 20,gc=20,vis=5,nagents=2,boxsize=boxsize,spawn_limit=25)
 
     # environments = [env,env1,env2,env3,env4,env5,env6,env7]
-    n_envs = 3 
-    environments = [GathererState(gr=10,gc=10,vis=5,nagents=na,boxsize=boxsize,spawn_limit=10) for i in range(n_envs)]
+    n_envs = 4 
+    environments = [GathererState(gr=5,gc=5,vis=5,nagents=na,boxsize=boxsize,spawn_limit=5) for i in range(n_envs)]
     # environments = [env]
 
     model = StateRAgent(input_size=100,state_size=3,containers=len(environments))
@@ -196,7 +196,7 @@ if __name__ == '__main__':
 #    model.load_state_dict(T.load("logs/models/1624719190.795712.pth"))
 #    model1.load_state_dict(T.load("logs/models/1624719190.798054.pth"))
 
-    models = [model]
+    models = [model,model1,model2]
     s = MultiEnvironmentSimulator(
         models,environments,nactions=6,
         log_message="Testing with 4 Environments",
