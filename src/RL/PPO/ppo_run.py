@@ -88,9 +88,10 @@ def train(config):
         agent.load_model()
     agent.n_epochs = 5
     for i in range(episodes):
-        hard_reset = True 
+        hard_reset = False 
         game.reset(hard_reset) 
         state = game.get_state().reshape(-1)
+    
         if i%5==0:
             game.enable_draw = True 
         else:
@@ -98,32 +99,37 @@ def train(config):
         if type == "Memory" or type=="Atten":
             agent.reset()
 
-        pbar = tqdm(range(steps),bar_format='{l_bar}{bar:10}{r_bar}{bar:-10b}')
+        pbar = tqdm(range(10),bar_format='{l_bar}{bar:10}{r_bar}{bar:-10b}')
         trewards = 0
         entropy_term = 0
-        for j in pbar: 
-            if type == "Default":
-                action, prob, value, entropy  = agent.choose_action(state)
-            else:
-                action, prob, value, entropy, ah  = agent.choose_action(state)
 
-            # print(entropy)
-            entropy_term += entropy.item()
-            avec = np.zeros((nactions));avec[action] = 1
-            new_state,reward = game.act(avec)
-            if type == "Default":
-                agent.remember(state,action,prob,value,reward)
-            else:
-                agent.remember(state,action,prob,value,reward,ah)
+        hidden_out = T.zeros(nlayers,1,16)
+        for _ in pbar: 
+            for j in range(steps//10): 
+                hidden_in = hidden_out
+                if type == "Default":
+                    action, prob, value, entropy  = agent.choose_action(state)
+                else:
+                    action, prob, value, entropy, hidden_out  = agent.choose_action(state,hidden_in)
 
+                # print(entropy)
+                entropy_term += entropy.item()
+                avec = np.zeros((nactions));avec[action] = 1
+                new_state,reward = game.act(avec)
+                new_state = new_state.reshape(-1)
 
-            if j%batch_size == batch_size -1:
-                agent.learn(entropy_term)
-            state = new_state
-            trewards += reward
-            state = new_state.reshape(-1)
-            game.step()
-            pbar.set_description(f"Episodes: {i:4} Rewards: {trewards:2}")
+                if type == "Default":
+                    agent.remember(state,action,prob,value,reward/100.0)
+                else:
+                    agent.remember(state,new_state,action,prob,value,reward/100.0,hidden_in,hidden_out)
+
+                state = new_state
+                trewards += reward
+                game.step()
+                pbar.set_description(f"Episodes: {i:4} Rewards: {trewards:2}")
+        
+            agent.learn(entropy_term)
+
         starting = time.time()
         recorder.newdata(trewards)
         show_once = 1 
@@ -137,13 +143,13 @@ if __name__ == '__main__':
     EPISODES = 5000
     STEPS = 500
 
-    c = Config("GRUAgentlr-S5")
+    c = Config("MemAgent-S5")
     c.HIDDEN_SIZE =  64 
     c.TYPE = "Memory" 
     c.VSIZE = 5
     c.NACTIONS = 6
-    c.NLAYERS = 4
+    c.NLAYERS = 2
     c.GSIZE= (14,14)
-    c.LOADMODEL = True
+    c.LOADMODEL = False 
 
     train(c)
