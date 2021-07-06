@@ -172,7 +172,7 @@ if __name__ == '__main__':
 
     #MULTI ENVIRONMENT TESTING
     boxsize = 10
-    na = 3
+    na = 1
     n_envs = 16 
     environments = [GathererState(gr=10,gc=10,vis=5,nagents=na,boxsize=boxsize,spawn_limit=5) for i in range(n_envs)]
     # environments = [env]
@@ -185,7 +185,7 @@ if __name__ == '__main__':
     model1.load_state_dict(T.load("logs/models/1624719190.798054.pth"))
     model2.load_state_dict(T.load("logs/models/1624719190.798054.pth"))
 
-    models = [model,model1,model2]
+    models = [model]
     s = MultiEnvironmentSimulator(
         models,environments,nactions=6,
         log_message="Testing with 4 Environments",
