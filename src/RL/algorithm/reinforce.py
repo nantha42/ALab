@@ -1196,7 +1196,6 @@ class MultiEnvironmentSimulator(MultiAgentSimulator):
                 positions.append([10,ly+h+10])
             else: 
                 positions.append([lx+w+10,ly])
-
         for cont,pos in zip(self.containers,positions):
             self.window.blit(cont.env.win,pos)
         py.display.update()
