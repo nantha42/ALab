@@ -1,4 +1,4 @@
-# RL - PowerAgent 
+# RL - Power Environment
 Agent needs to collect resources and build processor where the processor will produce items. Collecting this items gives more reward to the agent.
 
 ![Demo Run](images/3.png?raw=true "Demo 1") 
