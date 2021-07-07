@@ -7,14 +7,18 @@ from torchsummary import summary
 T.random.manual_seed(5)
 np.random.seed(5)
 
-# from algorithm.ppo import TrainerGRU, TrainerNOGRU,Simulator
-# from algorithm.ppo import TrainerGRU, TrainerNOGRU_V,SimulatorV
-# from environment.gatherer import Gatherer
 from environment.gatherer import GathererState
 from environment.collector import PowerGame 
 
 from algorithm.reinforce import MultiEnvironmentSimulator
 from algorithm.reinforce import Trainer, MultiAgentRunner, MultiAgentSimulator, Simulator
+
+#from algorithm.ppo import TrainerGRU, TrainerNOGRU,Simulator
+#from algorithm.ppo import TrainerGRU, TrainerNOGRU_V,SimulatorV
+#from environment.gatherer import Gatherer
+
+
+
 # from algorithm.reinforce import Trainer,  Simulator
 
 class StateRAgent(nn.Module):
@@ -156,6 +160,19 @@ class Agent(nn.Module):
 
 
 if __name__ == '__main__':
+      
+    #PPO Test
+#    model = Agent(25)
+#    trainer = TrainerNOGRU(model,learning_rate=0.0001)
+#    environment = Gatherer(gr=10,gc=10,vis=5,nagents=1)
+#    s = Simulator(
+#            model,environment,trainer,
+#            nactions=6,log_message = "testing ppo",
+#            visual_activations=True)
+#    s.run(1000,100,train=True,render_once=1,saveonce=1)
+#
+
+
     # MULTI AGENTS TESTING
     # nagents =  1 
     # env = StateGatherer(gr = 20,gc = 20,vis = 5,nagents=nagents)
@@ -173,7 +190,7 @@ if __name__ == '__main__':
     #MULTI ENVIRONMENT TESTING
     boxsize = 10
     na = 1
-    n_envs = 16 
+    n_envs = 4 
     environments = [GathererState(gr=10,gc=10,vis=5,nagents=na,boxsize=boxsize,spawn_limit=5) for i in range(n_envs)]
     # environments = [env]
 
@@ -181,9 +198,9 @@ if __name__ == '__main__':
     model1 = StateRAgent(input_size=100,state_size=3,containers=len(environments))
     model2 = StateRAgent(input_size=100,state_size=3,containers=len(environments))
 
-    model.load_state_dict(T.load("logs/models/1624719190.795712.pth"))
-    model1.load_state_dict(T.load("logs/models/1624719190.798054.pth"))
-    model2.load_state_dict(T.load("logs/models/1624719190.798054.pth"))
+    #model.load_state_dict(T.load("logs/models/1624719190.795712.pth"))
+    #model1.load_state_dict(T.load("logs/models/1624719190.798054.pth"))
+    #model2.load_state_dict(T.load("logs/models/1624719190.798054.pth"))
 
     models = [model]
     s = MultiEnvironmentSimulator(
@@ -191,5 +208,8 @@ if __name__ == '__main__':
         log_message="Testing with 4 Environments",
         visual_activations=True)
 
-    train = 0 
+    train = 1 
     s.run(1000,500,train=train,render_once=1,saveonce=2)
+
+
+

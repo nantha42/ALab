@@ -17,6 +17,7 @@ class Trainer:
             self.model.parameters(), lr=learning_rate)
         self.rewards = []
         self.log_probs = []
+        self.delta = 9 
 
     def store_records(self, reward, log_prob):
         self.rewards.append(reward)
@@ -42,6 +43,8 @@ class Trainer:
         self.log_probs = T.stack(self.log_probs,dim=0)
         Gt = 0
         gamma = 0.99
+        start =  self.delta 
+        timer = start 
         for t in reversed(range(len(self.rewards))):
             Gt = self.rewards[t] + gamma*Gt
             discounted_rewards.append(Gt)
@@ -184,6 +187,7 @@ class Simulator(Runner):
 
         self.font = py.font.SysFont("times", 10)
         self.window = py.display.set_mode((self.w, self.h), py.DOUBLEBUF, 32)
+        py.display.set_caption("Simulator")
         self.window.set_alpha(128)
         self.clock = py.time.Clock()
         self.enable_draw = True
@@ -592,6 +596,7 @@ class MultiAgentSimulator(MultiAgentRunner):
         self.h = 50 + env_h
         self.font = py.font.SysFont("times", 10)
         self.window = py.display.set_mode((self.w, self.h), py.DOUBLEBUF, 32)
+        py.display.set_caption("Simulator")
         self.window.set_alpha(128)
  
     def render_text(self, surf, text, pos):
@@ -1179,6 +1184,12 @@ class MultiEnvironmentSimulator(MultiAgentSimulator):
                 
                 if self.simulation_speed < 0:
                     self.simulation_speed = 0
+
+                if event.key == py.K_r:
+                    self.visual_activations = not self.visual_activations
+                    for env in self.environments:
+                        env.enable_draw=self.visual_activations
+                        
 
             if event.type == py.MOUSEBUTTONDOWN:
                 pass

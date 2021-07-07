@@ -1012,7 +1012,7 @@ class Simulator(Runner):
             if reset_model:
                 self.model.reset()
 
-            state = self.env.get_state().reshape(-1)
+            state = self.env.get_state(0).reshape(-1)
             bar = tqdm(
                 range(steps), bar_format='{l_bar}{bar:10}{r_bar}{bar:-10b}')
             trewards = 0
@@ -1108,7 +1108,7 @@ class SimulatorV(Simulator):
             if reset_model:
                 self.model.reset()
 
-            state = self.env.get_state().reshape(-1)
+            state = self.env.get_state(0).reshape(-1)
             bar = tqdm(
                 range(steps), bar_format='{l_bar}{bar:10}{r_bar}{bar:-10b}')
             trewards = 0

@@ -81,6 +81,7 @@ class StateAgent(Agent):
         self.items = 0
         self.processed_items = 0
         self.rewards = 0
+        self.circular_world = True 
     
     def act(self,action_vector, g_res, g_processor):
         left, up, right, down = action_vector[:4]
@@ -95,50 +96,81 @@ class StateAgent(Agent):
         picks = 0
         if len(self.trail_positions) > 7:
             self.trail_positions.pop(0)
-
-        if left:
-            if self.y>0:
-                self.y -= 1
-            else:         
-                self.y = h-1;
-
-
-        elif right: 
-            if self.y< h-1:
-                self.y += 1
-            else:
-                self.y = 0
-
-        elif up :
-            if self.x > 0:
-                self.x -= 1
-            else:
-                self.x = v-1
-
-        elif down :
-            if self.x < v-1:
-                self.x += 1
-            else:
-                self.x = 0
-
-        elif pick:
-            if g_res[cx][cy] == 1:
-                self.picked += g_res[cx][cy]
-                self.collecteds+=1 
-                g_res[cx][cy] = 0
+        if self.circular_world:
+            if left:
+                if self.y>0:
+                    self.y -= 1
+                else:         
+                    self.y = h-1;
+    
+    
+            elif right: 
+                if self.y< h-1:
+                    self.y += 1
+                else:
+                    self.y = 0
+    
+            elif up :
+                if self.x > 0:
+                    self.x -= 1
+                else:
+                    self.x = v-1
+    
+            elif down :
+                if self.x < v-1:
+                    self.x += 1
+                else:
+                    self.x = 0
+            elif pick:
+                if g_res[cx][cy] == 1:
+                    self.picked += g_res[cx][cy]
+                    self.collecteds+=1 
+                    g_res[cx][cy] = 0
+                    reward += 1
+                    picks = 1
+                elif g_res[cx][cy] == 2:
+                    self.items += 1
+                    g_res[cx][cy] = 0
+                    reward += 3
+    
+            elif build_proc > 0 and g_processor[cx][cy] == 0 and self.picked > 4:
+                # construction of storage is possible if agent picked more than 3 resource items
+                self.picked -= 4
+                g_processor[cx][cy] = 1
                 reward += 1
-                picks = 1
-            elif g_res[cx][cy] == 2:
-                self.items += 1
-                g_res[cx][cy] = 0
-                reward += 3
+                self.processor_locations.append([cx, cy])
+        else:
+            if left and self.y>0:
+                self.y -= 1
+    
+            elif right and self.y<h-1: 
+                self.y += 1
+    
+            elif up and self.x>0:
+                self.x -= 1
+    
+            elif down and self.x < v-1:
+                self.x += 1
+            elif pick:
+                if g_res[cx][cy] == 1:
+                    self.picked += g_res[cx][cy]
+                    self.collecteds+=1 
+                    g_res[cx][cy] = 0
+                    reward += 1
+                    picks = 1
+                elif g_res[cx][cy] == 2:
+                    self.items += 1
+                    g_res[cx][cy] = 0
+                    reward += 3
+    
+            elif build_proc > 0 and g_processor[cx][cy] == 0 and self.picked > 4:
+                # construction of storage is possible if agent picked more than 3 resource items
+                self.picked -= 4
+                g_processor[cx][cy] = 1
+                reward += 1
+                self.processor_locations.append([cx, cy])
+ 
 
-        elif build_proc > 0 and g_processor[cx][cy] == 0 and self.picked > 4:
-            # construction of storage is possible if agent picked more than 3 resource items
-            self.picked -= 4
-            g_processor[cx][cy] = 1
-            reward += 1
-            self.processor_locations.append([cx, cy])
         self.rewards += reward
         return reward, picks
 
@@ -548,6 +580,7 @@ class GathererState(Gatherer):
         return np.array([agent.collecteds/100,agent.items/100,agent.rewards/1000]).reshape(-1)
 
     def draw(self):
+        
         self.win.fill((0, 0, 0))
         self.draw_grid()
         self.draw_trail()
